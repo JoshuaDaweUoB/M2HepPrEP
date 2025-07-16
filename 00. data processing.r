@@ -53,6 +53,20 @@ m2hepprep_arm <- m2hepprep_raw %>%
 
 View(m2hepprep_arm)
 
+m2hepprep_dispensed <- m2hepprep_raw %>%
+  filter(redcap_repeat_instrument == "adverse_event_form") %>%
+  group_by(record_id) %>%
+  slice_max(prep_disp, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  select(record_id, prep_disp, smi_prep_start, smi_prep_last) %>%
+  mutate(prep_disp = as.factor(prep_disp))
+
+dispense <- CreateTableOne(vars = c("prep_disp"),
+                            data = m2hepprep_dispensed, 
+                            test = TRUE)
+
+print(dispense, showAllLevels = TRUE)
+
 # Create a list of visit names and their corresponding suffixes
 visits <- list(
   "3 months" = "3m",
@@ -63,7 +77,7 @@ visits <- list(
 )
 
 # Variables to select (excluding redcap_event_name and record_id)
-visit_vars <- c("adh2_visitdate", "prep_prescribe", "adh_prep", 
+visit_vars <- c("adh2_visitdate", "prep_prescribe", "adh_prep",
                 paste0("adh_noprep_reason___", 1:14),
                 "stop_prep", "prep_last4week", "prep_now")
 
@@ -106,11 +120,12 @@ View(m2hepprep_combined)
 # Create prep_prescribe_any variable
 m2hepprep_combined <- m2hepprep_combined %>%
   mutate(prep_prescribe_any = pmax(prep_prescribe_3m, prep_prescribe_6m, prep_prescribe_9m, prep_prescribe_12m, na.rm = TRUE))
+  mutate(adh_prep_any = pmax(adh_prep_3m, adh_prep_6m, adh_prep_9m, adh_prep_12m, adh_prep_15m, na.rm = TRUE))
 
 # Basic frequency table
 
 # Define variables for the table
-baseline_vars <- c("sdem_age", "sdem_oat", "sdem_sev", "sdem_sex", "sdem_gender", 
+baseline_vars <- c("sdem_reside", "sdem_age", "sdem_oat", "sdem_sev", "sdem_sex", "sdem_gender", 
                    "sdem_prg_c", "vcp_inject_6mo", "sdem_hiv_etst", "sdem_hiv_rtst_r", 
                    "sdem_prp_cu", "sdem_hcv", "sdem_slep6m", "sdem_live6m_hls", 
                    "sdem_live6m_shl1", "sdem_live6m_trs", "sdem_live6m_htl", 
@@ -123,15 +138,11 @@ baseline_vars <- c("sdem_age", "sdem_oat", "sdem_sev", "sdem_sex", "sdem_gender"
 
 # Create the table with row percentages
 baseline_table <- CreateTableOne(vars = baseline_vars, 
-                                strata = "prep_prescribe_any", 
+                                strata = "adh_prep_any", 
                                 data = m2hepprep_combined,
                                 test = TRUE)
-
-
-# Print with row percentages instead of column percentages
-print(baseline_table, showAllLevels = TRUE, formatOptions = list(percent = "row"))
 
 # Convert table to data frame with row percentages and save to Excel
 table_df <- print(baseline_table, showAllLevels = TRUE, printToggle = FALSE, 
                   formatOptions = list(percent = "row"))
-write.csv(table_df, "baseline_table.csv")
+write.csv(table_df, "data/baseline_table.csv")
