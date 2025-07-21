@@ -6,12 +6,19 @@ setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/
 
 # load raw data
 m2hepprep_raw <- read.csv("data/cleaned_m2_data_05012025 (1).csv")
-View(m2hepprep_raw)
+m2hepprep_tx_raw <- read.csv("data/Initiation and adhrence.csv")
+
+# informed consent
+m2hepprep_consent <- m2hepprep_raw %>%
+  filter(redcap_event_name == "Baseline") %>%
+  select(record_id, rc_informed)
+
+View(m2hepprep_consent)
 
 # baseline data
 m2hepprep_baseline <- m2hepprep_raw %>%
   filter(redcap_event_name == "Screening (visit 1)") %>%
-  select(record_id, id_paper, sdem_visit, sdem_reside, sdem_lang_mia_2, sdem_age, sdem_oat, sdem_sev, sdem_sex, sdem_gender, sdem_prg_c, vcp_inject_6mo, sdem_hiv_etst, sdem_hiv_rtst_r, sdem_prp_cu, sdem_hcv, sdem_wil_fol, sdem_elig, sdem_hcv_etst, sdem_hcv_rtst, sdem_hcv_rtst_r, sdem_hiv_rtst, scr_c_hcv_res_retired, insti, sdem_slep6m, sdem_live6m_hls, sdem_live6m_shl1, sdem_live6m_trs, sdem_live6m_htl, sdem_live6m_hiv, sdem_live6m_sut, sdem_live6m_shl2, sdem_live6m_shl3, sdem_live6m_shl4, sdem_live6m_shl5, sdem_idu, sdem_idu6m___0, sdem_idu6m___1, sdem_idu6m___2, sdem_idu6m___3, sdem_idu6m___4, sdem_idu6m___5, sdem_idu6m___6, sdem_idu6m___7, sdem_dis_hcv, sdem_dis_hiv, sdem_dis_sex, sdem_dis_gay, sdem_dis_sub, sdem_dis_race, vir_dbs, vir_rna2)
+  select(record_id, id_paper, rand_arm, rand_date, is_eligible, sdem_visit, sdem_reside, sdem_lang_mia_2, sdem_age, sdem_oat, sdem_sev, sdem_sex, sdem_gender, sdem_prg_c, vcp_inject_6mo, sdem_hiv_etst, sdem_hiv_rtst_r, sdem_prp_cu, sdem_hcv, sdem_wil_fol, sdem_elig, sdem_hcv_etst, sdem_hcv_rtst, sdem_hcv_rtst_r, sdem_hiv_rtst, scr_c_hcv_res_retired, insti, sdem_slep6m, sdem_live6m_hls, sdem_live6m_shl1, sdem_live6m_trs, sdem_live6m_htl, sdem_live6m_hiv, sdem_live6m_sut, sdem_live6m_shl2, sdem_live6m_shl3, sdem_live6m_shl4, sdem_live6m_shl5, sdem_idu, sdem_idu6m___0, sdem_idu6m___1, sdem_idu6m___2, sdem_idu6m___3, sdem_idu6m___4, sdem_idu6m___5, sdem_idu6m___6, sdem_idu6m___7, sdem_dis_hcv, sdem_dis_hiv, sdem_dis_sex, sdem_dis_gay, sdem_dis_sub, sdem_dis_race, vir_dbs, vir_rna2)
 
 # 3 month visit
 m2hepprep_3m <- m2hepprep_raw %>%
@@ -38,34 +45,11 @@ m2hepprep_12m <- m2hepprep_raw %>%
   filter(redcap_event_name == "15 months") %>%
   select(record_id, adh2_visitdate, prep_prescribe, adh_prep, adh_noprep_reason___1, adh_noprep_reason___2, adh_noprep_reason___3, adh_noprep_reason___4, adh_noprep_reason___5, adh_noprep_reason___6, adh_noprep_reason___7, adh_noprep_reason___8, adh_noprep_reason___9, adh_noprep_reason___10, adh_noprep_reason___11, adh_noprep_reason___12, adh_noprep_reason___13, adh_noprep_reason___14, stop_prep, prep_last4week, prep_now)
 
-# treatment initiation
-m2hepprep_treat <- m2hepprep_raw %>%
-    filter(redcap_repeat_instrument == "treatment_initiation")
-    
-# treatment arm
-m2hepprep_arm <- m2hepprep_raw %>%
-  filter(redcap_repeat_instrument == "serious_adverse_event_form") %>%
-  group_by(record_id) %>%
-  mutate(record_id_seq = row_number()) %>%
-  filter(record_id_seq == 1) %>%
-  ungroup() %>%
-  select(record_id, sae_txarm)
-
-View(m2hepprep_arm)
-
-m2hepprep_dispensed <- m2hepprep_raw %>%
-  filter(redcap_repeat_instrument == "adverse_event_form") %>%
-  group_by(record_id) %>%
-  slice_max(prep_disp, n = 1, with_ties = FALSE) %>%
-  ungroup() %>%
-  select(record_id, prep_disp, smi_prep_start, smi_prep_last) %>%
-  mutate(prep_disp = as.factor(prep_disp))
-
-dispense <- CreateTableOne(vars = c("prep_disp"),
-                            data = m2hepprep_dispensed, 
-                            test = TRUE)
-
-print(dispense, showAllLevels = TRUE)
+# prep initiation
+m2hepprep_tx_clean <- m2hepprep_tx_raw %>%
+  select(record_id, rand_to_disp, within_6_months) %>%
+  mutate(prep_init = 1) %>%
+  filter(!is.na(record_id) & record_id != "")
 
 # Create a list of visit names and their corresponding suffixes
 visits <- list(
@@ -113,9 +97,25 @@ m2hepprep_combined <- m2hepprep_baseline %>%
   left_join(m2hepprep_6m, by = "record_id") %>%
   left_join(m2hepprep_9m, by = "record_id") %>%
   left_join(m2hepprep_12m, by = "record_id") %>%
-  left_join(m2hepprep_15m, by = "record_id")
+  left_join(m2hepprep_15m, by = "record_id") %>%
+  left_join(m2hepprep_tx_clean, by = "record_id")
 
-View(m2hepprep_combined)
+# combined baseline and prep dataframes
+m2hepprep_prep_combined <- m2hepprep_baseline %>%
+  left_join(m2hepprep_tx_clean, by = "record_id") %>%
+  left_join(m2hepprep_consent, by = "record_id")
+
+# drop rows with no consent and without eligibility
+m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
+  filter(is_eligible == "Yes") %>%
+  filter(rc_informed == 1) %>%
+  filter(rand_arm != "")
+
+# create non-initiated prep level
+m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
+  mutate(prep_init = ifelse(is.na(prep_init), 0, prep_init))
+
+View(m2hepprep_prep_combined)
 
 # Create prep_prescribe_any variable
 m2hepprep_combined <- m2hepprep_combined %>%
@@ -125,7 +125,7 @@ m2hepprep_combined <- m2hepprep_combined %>%
 # Basic frequency table
 
 # Define variables for the table
-baseline_vars <- c("sdem_reside", "sdem_age", "sdem_oat", "sdem_sev", "sdem_sex", "sdem_gender", 
+baseline_vars <- c("rand_arm", "sdem_reside", "sdem_age", "sdem_oat", "sdem_sev", "sdem_sex", "sdem_gender", 
                    "sdem_prg_c", "vcp_inject_6mo", "sdem_hiv_etst", "sdem_hiv_rtst_r", 
                    "sdem_prp_cu", "sdem_hcv", "sdem_slep6m", "sdem_live6m_hls", 
                    "sdem_live6m_shl1", "sdem_live6m_trs", "sdem_live6m_htl", 
@@ -138,8 +138,8 @@ baseline_vars <- c("sdem_reside", "sdem_age", "sdem_oat", "sdem_sev", "sdem_sex"
 
 # Create the table with row percentages
 baseline_table <- CreateTableOne(vars = baseline_vars, 
-                                strata = "adh_prep_any", 
-                                data = m2hepprep_combined,
+                                strata = "prep_init", 
+                                data = m2hepprep_prep_combined,
                                 test = TRUE)
 
 # Convert table to data frame with row percentages and save to Excel
