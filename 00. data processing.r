@@ -13,6 +13,11 @@ m2hepprep_consent <- m2hepprep_raw %>%
   filter(redcap_event_name == "Baseline") %>%
   select(record_id, rc_informed)
 
+# violence vars
+m2hepprep_violence <- m2hepprep_raw %>%
+  filter(redcap_event_name == "Baseline") %>%
+  select(record_id,  aiv_kid_evr_pa, aiv_adt_evr_pa, aiv_6m_pa, aiv_kid_evr_sex, aiv_adt_evr_sex, aiv_6m_sex, cla_2)
+
 # baseline data
 m2hepprep_baseline <- m2hepprep_raw %>%
   filter(redcap_event_name == "Screening (visit 1)") %>%
@@ -101,7 +106,6 @@ m2hepprep_combined <- m2hepprep_baseline %>%
 # Create prep_prescribe_any variable
 m2hepprep_combined <- m2hepprep_combined %>%
   mutate(prep_prescribe_any = pmax(prep_prescribe_3m, prep_prescribe_6m, prep_prescribe_9m, prep_prescribe_12m, na.rm = TRUE))
-  mutate(adh_prep_any = pmax(adh_prep_3m, adh_prep_6m, adh_prep_9m, adh_prep_12m, adh_prep_15m, na.rm = TRUE))
 
 # save data
 write.csv(m2hepprep_combined, "data/m2hepprep_combined.csv", row.names = FALSE)
@@ -109,7 +113,8 @@ write.csv(m2hepprep_combined, "data/m2hepprep_combined.csv", row.names = FALSE)
 # combined baseline and prep dataframes
 m2hepprep_prep_combined <- m2hepprep_baseline %>%
   left_join(m2hepprep_tx_clean, by = "record_id") %>%
-  left_join(m2hepprep_consent, by = "record_id")
+  left_join(m2hepprep_consent, by = "record_id") %>%
+  left_join(m2hepprep_violence, by = "record_id")
 
 # drop rows with no consent and without eligibility
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
@@ -121,6 +126,96 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
   mutate(prep_init = ifelse(is.na(prep_init), 0, prep_init))
 
+# dichotomise variables
+m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
+  mutate(
+    # Dichotomise sex (keep as Male/Female)
+    sdem_sex_binary = case_when(
+      sdem_sex == "Male" ~ "Male",
+      sdem_sex == "Female" ~ "Female",
+      TRUE ~ NA_character_
+    ),
+    # Dichotomise age (under 30 vs 30+)
+    sdem_age_binary = case_when(
+      as.numeric(sdem_age) < 30 ~ "Under 30",
+      as.numeric(sdem_age) >= 30 ~ "30+",
+      TRUE ~ NA_character_
+    ),
+    # Dichotomise housing into homeless vs not homeless
+    sdem_slep6m_binary = case_when(
+      sdem_slep6m %in% c("Homeless", "In a shelter") ~ "Homeless",
+      sdem_slep6m %in% c("Drug treatment facility", "HIV/AIDS housing/group home", "Other", 
+                         "Other residential facility or institution", "Owner", 
+                         "Permanent single-room occupancy", "Rent", "Staying with friends/family", 
+                         "Transitional") ~ "Not homeless",
+      TRUE ~ NA_character_
+    ),
+    # Create injection risk binary variable
+    inject_risk_bin = case_when(
+      # Risk = "Yes" if any of variables 0-6 contain the risk behavior text
+      (sdem_idu6m___0 == "Reuse a needle without cleaning it with bleach or boiling water first" | 
+       sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before" | 
+       sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton" | 
+       sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done" | 
+       sdem_idu6m___4 == "Let someone else use a needle after you used it" | 
+       sdem_idu6m___5 == "Let someone else use the rinse water, etc" | 
+       sdem_idu6m___6 == "Allow someone else to inject with drugs") ~ "Yes",
+      # Risk = "No" if variable 7 is "None of the above / NA"
+      sdem_idu6m___7 == "None of the above / NA" ~ "No",
+      TRUE ~ NA_character_
+    ),
+    # Create healthcare discrimination binary variable
+    healthcare_disc_bin = case_when(
+      # Discrimination = "Yes" if any of the discrimination variables are "Yes"
+      (sdem_dis_hcv == "Yes" | sdem_dis_hiv == "Yes" | sdem_dis_sex == "Yes" | 
+       sdem_dis_gay == "Yes" | sdem_dis_sub == "Yes" | sdem_dis_race == "Yes") ~ "Yes",
+      # Discrimination = "No" if all are "No"
+      (sdem_dis_hcv == "No" & sdem_dis_hiv == "No" & sdem_dis_sex == "No" & 
+       sdem_dis_gay == "No" & sdem_dis_sub == "No" & sdem_dis_race == "No") ~ "No",
+      TRUE ~ NA_character_
+    ),
+    # Create substance use discrimination binary variable
+    sdem_dis_sub_bin = case_when(
+      sdem_dis_sub == "Yes" ~ "Yes",
+      sdem_dis_sub == "No" ~ "No",
+      TRUE ~ NA_character_
+    ),
+    # Create incarceration binary variable
+    incarc_6m_bin = case_when(
+      as.numeric(cla_2) == 0 ~ "No",
+      as.numeric(cla_2) > 0 ~ "Yes",
+      TRUE ~ NA_character_
+    ),
+    # Clean violence variables - convert only empty strings to NA, keep "Refuse to answer"
+    aiv_kid_evr_pa = case_when(
+      aiv_kid_evr_pa == "" ~ NA_character_,
+      aiv_adt_evr_pa == "No" ~ "No",  # Set to No if ever physical abuse is No
+      TRUE ~ aiv_kid_evr_pa
+    ),
+    aiv_adt_evr_pa = case_when(
+      aiv_adt_evr_pa == "" ~ NA_character_,
+      TRUE ~ aiv_adt_evr_pa
+    ),
+    aiv_6m_pa = case_when(
+      aiv_6m_pa == "" ~ NA_character_,
+      aiv_adt_evr_pa == "No" ~ "No",  # Set to No if ever physical abuse is No
+      TRUE ~ aiv_6m_pa
+    ),
+    aiv_kid_evr_sex = case_when(
+      aiv_kid_evr_sex == "" ~ NA_character_,
+      aiv_adt_evr_sex == "No" ~ "No",  # Set to No if ever sexual abuse is No
+      TRUE ~ aiv_kid_evr_sex
+    ),
+    aiv_adt_evr_sex = case_when(
+      aiv_adt_evr_sex == "" ~ NA_character_,
+      TRUE ~ aiv_adt_evr_sex
+    ),
+    aiv_6m_sex = case_when(
+      aiv_6m_sex == "" ~ NA_character_,
+      aiv_adt_evr_sex == "No" ~ "No",  # Set to No if ever sexual abuse is No
+      TRUE ~ aiv_6m_sex
+    )
+  )
+
 # save data
 write.csv(m2hepprep_prep_combined, "data/m2hepprep_prep_combined.csv", row.names = FALSE)
-
