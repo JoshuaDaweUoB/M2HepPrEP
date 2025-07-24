@@ -8,33 +8,10 @@ setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/
 m2hepprep_combined <- read.csv("data/m2hepprep_combined.csv")
 m2hepprep_prep_combined <- read.csv("data/m2hepprep_prep_combined.csv")
 
-# Basic frequency table
+# Frequency tables
 
 # Define variables for the table
-baseline_vars <- c("rand_arm", "sdem_reside", "sdem_age", "sdem_oat", "sdem_sev", "sdem_sex", "sdem_gender", 
-                   "sdem_prg_c", "vcp_inject_6mo", "sdem_hiv_etst", "sdem_hiv_rtst_r", 
-                   "sdem_prp_cu", "sdem_hcv", "sdem_slep6m", "sdem_live6m_hls", 
-                   "sdem_live6m_shl1", "sdem_live6m_trs", "sdem_live6m_htl", 
-                   "sdem_live6m_hiv", "sdem_live6m_sut", "sdem_live6m_shl2", 
-                   "sdem_live6m_shl3", "sdem_live6m_shl4", "sdem_live6m_shl5", 
-                   "sdem_idu", "sdem_idu6m___0", "sdem_idu6m___1", "sdem_idu6m___2", 
-                   "sdem_idu6m___3", "sdem_idu6m___4", "sdem_idu6m___5", "sdem_idu6m___6", 
-                   "sdem_idu6m___7", "sdem_dis_hcv", "sdem_dis_hiv", "sdem_dis_sex", 
-                   "sdem_dis_gay", "sdem_dis_sub", "sdem_dis_race")
-
-# Create the table with row percentages
-baseline_table <- CreateTableOne(vars = baseline_vars, 
-                                strata = "prep_init", 
-                                data = m2hepprep_prep_combined,
-                                test = TRUE)
-
-# Convert table to data frame with row percentages and save to Excel
-table_df <- print(baseline_table, showAllLevels = TRUE, printToggle = FALSE, 
-                  formatOptions = list(percent = "row"))
-write.csv(table_df, "data/baseline_table.csv")
-
-# Define variables for the table
-baseline_vars <- c("sdem_sex_binary", "sdem_age", "sdem_age_binary", "sdem_slep6m_binary",  "inject_risk_bin", "sdem_dis_sub_bin", "healthcare_disc_bin", "incarc_6m_bin", "aiv_kid_evr_pa", "aiv_adt_evr_pa", "aiv_6m_pa", "aiv_kid_evr_sex", "aiv_adt_evr_sex", "aiv_6m_sex")
+baseline_vars <- c("sdem_sex_binary", "sdem_age", "sdem_age_binary", "sdem_slep6m_binary",  "syringe_share_bin", "syringe_loan_bin", "syringe_other_bin", "sdem_dis_sub_bin", "healthcare_disc_bin", "incarc_6m_bin", "aiv_kid_evr_pa", "aiv_adt_evr_pa", "aiv_6m_pa", "aiv_kid_evr_sex", "aiv_adt_evr_sex", "aiv_6m_sex", "sex_work_ever", "oat_ever", "mental_health_prescribe_ever", "therapy_ever", "sexwmen_1m")
 
 # Create the table with row percentages and Total column
 baseline_table <- CreateTableOne(vars = baseline_vars, 
@@ -48,6 +25,45 @@ baseline_table <- CreateTableOne(vars = baseline_vars,
 table_df <- print(baseline_table, showAllLevels = TRUE, printToggle = FALSE, 
                   formatOptions = list(percent = "row"))
 write.csv(table_df, "data/baseline_table_city.csv")
+
+# Create the table with row percentages and Total column
+baseline_table <- CreateTableOne(vars = baseline_vars, 
+                                strata = "prep_init", 
+                                data = m2hepprep_prep_combined,
+                                test = TRUE,
+                                addOverall = TRUE,
+                                includeNA = FALSE)
+
+# Convert table to data frame with row percentages and save to Excel
+table_df <- print(baseline_table, showAllLevels = TRUE, printToggle = FALSE, 
+                  formatOptions = list(percent = "row"))
+write.csv(table_df, "data/baseline_table_prep.csv")
+
+# Create the table with row percentages and Total column
+baseline_table <- CreateTableOne(vars = baseline_vars, 
+                                strata = "prep_init", 
+                                data = m2hepprep_prep_combined_montreal,
+                                test = TRUE,
+                                addOverall = TRUE,
+                                includeNA = FALSE)
+
+# Convert table to data frame with row percentages and save to Excel
+table_df <- print(baseline_table, showAllLevels = TRUE, printToggle = FALSE, 
+                  formatOptions = list(percent = "row"))
+write.csv(table_df, "data/baseline_table_prep_montreal.csv")
+
+# Create the table with row percentages and Total column
+baseline_table <- CreateTableOne(vars = baseline_vars, 
+                                strata = "prep_init", 
+                                data = m2hepprep_prep_combined_miami,
+                                test = TRUE,
+                                addOverall = TRUE,
+                                includeNA = FALSE)
+
+# Convert table to data frame with row percentages and save to Excel
+table_df <- print(baseline_table, showAllLevels = TRUE, printToggle = FALSE, 
+                  formatOptions = list(percent = "row"))
+write.csv(table_df, "data/baseline_table_prep_miami.csv")
 
 # prep initiation as outcome
 prep_init_model <- glm(prep_init ~ rand_arm + sdem_reside, 

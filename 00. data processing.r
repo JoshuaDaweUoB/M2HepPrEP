@@ -14,9 +14,9 @@ m2hepprep_consent <- m2hepprep_raw %>%
   select(record_id, rc_informed)
 
 # violence vars
-m2hepprep_violence <- m2hepprep_raw %>%
+m2hepprep_baseline_vars <- m2hepprep_raw %>%
   filter(redcap_event_name == "Baseline") %>%
-  select(record_id,  aiv_kid_evr_pa, aiv_adt_evr_pa, aiv_6m_pa, aiv_kid_evr_sex, aiv_adt_evr_sex, aiv_6m_sex, cla_2)
+  select(record_id,  aiv_kid_evr_pa, aiv_adt_evr_pa, aiv_6m_pa, aiv_kid_evr_sex, aiv_adt_evr_sex, aiv_6m_sex, cla_2, cla_16a, cla_16c, nms_er, nms_hps_drg, nms_otp, nms_rsd, nms_auc, nms_opd, nms_mnt, nms_trp, srb_1m_m)
 
 # baseline data
 m2hepprep_baseline <- m2hepprep_raw %>%
@@ -114,7 +114,7 @@ write.csv(m2hepprep_combined, "data/m2hepprep_combined.csv", row.names = FALSE)
 m2hepprep_prep_combined <- m2hepprep_baseline %>%
   left_join(m2hepprep_tx_clean, by = "record_id") %>%
   left_join(m2hepprep_consent, by = "record_id") %>%
-  left_join(m2hepprep_violence, by = "record_id")
+  left_join(m2hepprep_baseline_vars, by = "record_id")
 
 # drop rows with no consent and without eligibility
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
@@ -137,8 +137,8 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     ),
     # Dichotomise age (under 30 vs 30+)
     sdem_age_binary = case_when(
-      as.numeric(sdem_age) < 30 ~ "Under 30",
-      as.numeric(sdem_age) >= 30 ~ "30+",
+      as.numeric(sdem_age) < 40 ~ "Under 40",
+      as.numeric(sdem_age) >= 40 ~ "40+",
       TRUE ~ NA_character_
     ),
     # Dichotomise housing into homeless vs not homeless
@@ -150,20 +150,49 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
                          "Transitional") ~ "Not homeless",
       TRUE ~ NA_character_
     ),
-    # Create injection risk binary variable
-    inject_risk_bin = case_when(
+
+    # Create syringe sharing binary variable
+    syringe_share_bin = case_when(
       # Risk = "Yes" if any of variables 0-6 contain the risk behavior text
-      (sdem_idu6m___0 == "Reuse a needle without cleaning it with bleach or boiling water first" | 
-       sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before" | 
-       sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton" | 
-       sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done" | 
-       sdem_idu6m___4 == "Let someone else use a needle after you used it" | 
-       sdem_idu6m___5 == "Let someone else use the rinse water, etc" | 
-       sdem_idu6m___6 == "Allow someone else to inject with drugs") ~ "Yes",
+      (sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before") ~ "Yes",
       # Risk = "No" if variable 7 is "None of the above / NA"
+      sdem_idu6m___0 == "Reuse a needle without cleaning it with bleach or boiling water first" |
+      sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton" | 
+      sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done" | 
+      sdem_idu6m___4 == "Let someone else use a needle after you used it" | 
+      sdem_idu6m___5 == "Let someone else use the rinse water, etc" | 
+      sdem_idu6m___6 == "Allow someone else to inject with drugs" |
       sdem_idu6m___7 == "None of the above / NA" ~ "No",
       TRUE ~ NA_character_
     ),
+
+    # Create syringe sharing binary variable
+    syringe_loan_bin = case_when(
+      (sdem_idu6m___4 == "Let someone else use a needle after you used it" | 
+      sdem_idu6m___5 == "Let someone else use the rinse water, etc" | 
+      sdem_idu6m___6 == "Allow someone else to inject with drugs") ~ "Yes",
+      sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before" |
+      sdem_idu6m___0 == "Reuse a needle without cleaning it with bleach or boiling water first" |
+      sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton" | 
+      sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done" | 
+      sdem_idu6m___7 == "None of the above / NA" ~ "No",
+      TRUE ~ NA_character_
+    ),
+
+    # other injecting risks
+    syringe_other_bin = case_when(
+      (sdem_idu6m___0 == "Reuse a needle without cleaning it with bleach or boiling water first" |
+      sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton" | 
+      sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done") ~ "Yes",
+      sdem_idu6m___4 == "Let someone else use a needle after you used it" | 
+      sdem_idu6m___5 == "Let someone else use the rinse water, etc" | 
+      sdem_idu6m___6 == "Allow someone else to inject with drugs" |
+      sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before" |
+      sdem_idu6m___7 == "None of the above / NA" ~ "No",
+      TRUE ~ NA_character_
+    ), 
+
+
     # Create healthcare discrimination binary variable
     healthcare_disc_bin = case_when(
       # Discrimination = "Yes" if any of the discrimination variables are "Yes"
@@ -189,7 +218,6 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     # Clean violence variables - convert only empty strings to NA, keep "Refuse to answer"
     aiv_kid_evr_pa = case_when(
       aiv_kid_evr_pa == "" ~ NA_character_,
-      aiv_adt_evr_pa == "No" ~ "No",  # Set to No if ever physical abuse is No
       TRUE ~ aiv_kid_evr_pa
     ),
     aiv_adt_evr_pa = case_when(
@@ -197,13 +225,12 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       TRUE ~ aiv_adt_evr_pa
     ),
     aiv_6m_pa = case_when(
+      aiv_adt_evr_pa == "No" ~ "No",
       aiv_6m_pa == "" ~ NA_character_,
-      aiv_adt_evr_pa == "No" ~ "No",  # Set to No if ever physical abuse is No
       TRUE ~ aiv_6m_pa
     ),
     aiv_kid_evr_sex = case_when(
       aiv_kid_evr_sex == "" ~ NA_character_,
-      aiv_adt_evr_sex == "No" ~ "No",  # Set to No if ever sexual abuse is No
       TRUE ~ aiv_kid_evr_sex
     ),
     aiv_adt_evr_sex = case_when(
@@ -211,11 +238,43 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       TRUE ~ aiv_adt_evr_sex
     ),
     aiv_6m_sex = case_when(
+      aiv_adt_evr_sex == "No" ~ "No",
       aiv_6m_sex == "" ~ NA_character_,
-      aiv_adt_evr_sex == "No" ~ "No",  # Set to No if ever sexual abuse is No
       TRUE ~ aiv_6m_sex
+    ),
+    sex_work_ever = case_when(
+      cla_16a == "" ~ NA_character_,
+      TRUE ~ cla_16a,
+    ),
+    oat_ever = case_when(
+      nms_opd == "" ~ NA_character_,
+      TRUE ~ nms_opd,
+    ),
+    mental_health_prescribe_ever = case_when(
+      nms_mnt == "" ~ NA_character_,
+      TRUE ~ nms_mnt
+    ),
+    therapy_ever = case_when(
+      nms_trp == "" ~ NA_character_,
+      TRUE ~ nms_trp
+    ),
+    sexwmen_1m = case_when(
+      srb_1m_m == "" ~ NA_character_,
+      TRUE ~ srb_1m_m
     )
   )
 
 # save data
 write.csv(m2hepprep_prep_combined, "data/m2hepprep_prep_combined.csv", row.names = FALSE)
+View(m2hepprep_prep_combined)
+# save montreal data
+m2hepprep_prep_combined_montreal <- m2hepprep_prep_combined %>%
+  filter(sdem_reside == "Greater Montreal area")
+
+write.csv(m2hepprep_prep_combined_montreal, "data/m2hepprep_prep_combined_montreal.csv", row.names = FALSE)
+
+# save miami data
+m2hepprep_prep_combined_miami <- m2hepprep_prep_combined %>%
+  filter(sdem_reside == "Greater Miami area")
+
+write.csv(m2hepprep_prep_combined_miami, "data/m2hepprep_prep_combined_miami.csv", row.names = FALSE)
