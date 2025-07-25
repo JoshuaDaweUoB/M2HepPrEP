@@ -5,16 +5,19 @@ pacman::p_load(dplyr, tidyr, readr, readxl, lubridate, tableone, broom)
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/Montreal paper/")
 
 # load clean data
-m2hepprep_combined <- read.csv("data/m2hepprep_combined.csv")
 m2hepprep_prep_combined <- read.csv("data/m2hepprep_prep_combined.csv")
 
 # Frequency tables
 
-# Define variables for the table
-baseline_vars <- c("sdem_sex_binary", "sdem_age", "sdem_age_binary", "sdem_slep6m_binary",  "syringe_share_bin", "syringe_loan_bin", "syringe_other_bin", "sdem_dis_sub_bin", "healthcare_disc_bin", "incarc_6m_bin", "aiv_kid_evr_pa", "aiv_adt_evr_pa", "aiv_6m_pa", "aiv_kid_evr_sex", "aiv_adt_evr_sex", "aiv_6m_sex", "sex_work_ever", "oat_ever", "mental_health_prescribe_ever", "therapy_ever", "sexwmen_1m")
+# variables for tables
+table1_vars <- c("sdem_sex_binary", "sdem_age", "sdem_age_binary", "education_status_4cat", "income_4cat", "employment_current", "sdem_slep6m_binary", "incarc_6m_bin")
+table2_vars <- c("sdem_dis_sub_bin", "healthcare_disc_bin", "aiv_kid_evr_pa", "aiv_adt_evr_pa", "aiv_6m_pa", "aiv_kid_evr_sex", "aiv_adt_evr_sex", "aiv_6m_sex")
+table3_vars <- c("hr_use", "oat_ever", "oral_bupe", "lab_bupe", "naltrexone", "methadone", "other_oat", "mental_health_prescribe_ever", "therapy_ever")
+#table4_vars <- c("syringe_share_bin", "syringe_loan_bin", "syringe_other_bin",
+#baseline_vars <- c( , "sex_work_ever", "oat_ever", "mental_health_prescribe_ever", "therapy_ever", "sexwmen_1m")
 
-# Create the table with row percentages and Total column
-baseline_table <- CreateTableOne(vars = baseline_vars, 
+# create table 1
+baseline_table <- CreateTableOne(vars = table1_vars, 
                                 strata = "sdem_reside", 
                                 data = m2hepprep_prep_combined,
                                 test = TRUE,
@@ -24,7 +27,41 @@ baseline_table <- CreateTableOne(vars = baseline_vars,
 # Convert table to data frame with row percentages and save to Excel
 table_df <- print(baseline_table, showAllLevels = TRUE, printToggle = FALSE, 
                   formatOptions = list(percent = "row"))
-write.csv(table_df, "data/baseline_table_city.csv")
+write.csv(table_df, "data/table1_vars.csv")
+
+# create table 2
+baseline_table <- CreateTableOne(vars = table2_vars, 
+                                strata = "sdem_reside", 
+                                data = m2hepprep_prep_combined,
+                                test = TRUE,
+                                addOverall = TRUE,
+                                includeNA = FALSE)
+
+# Convert table to data frame with row percentages and save to Excel
+table_df <- print(baseline_table, showAllLevels = TRUE, printToggle = FALSE, 
+                  formatOptions = list(percent = "row"))
+write.csv(table_df, "data/table2_vars.csv")
+
+# create table 3
+baseline_table <- CreateTableOne(vars = table3_vars, 
+                                strata = "sdem_reside", 
+                                data = m2hepprep_prep_combined,
+                                test = TRUE,
+                                addOverall = TRUE,
+                                includeNA = FALSE)
+
+# Convert table to data frame with row percentages and save to Excel
+table_df <- print(baseline_table, showAllLevels = TRUE, printToggle = FALSE, 
+                  formatOptions = list(percent = "row"))
+write.csv(table_df, "data/table3_vars.csv")
+
+
+
+
+
+
+
+
 
 # Create the table with row percentages and Total column
 baseline_table <- CreateTableOne(vars = baseline_vars, 

@@ -16,7 +16,7 @@ m2hepprep_consent <- m2hepprep_raw %>%
 # violence vars
 m2hepprep_baseline_vars <- m2hepprep_raw %>%
   filter(redcap_event_name == "Baseline") %>%
-  select(record_id,  aiv_kid_evr_pa, aiv_adt_evr_pa, aiv_6m_pa, aiv_kid_evr_sex, aiv_adt_evr_sex, aiv_6m_sex, cla_2, cla_16a, cla_16c, nms_er, nms_hps_drg, nms_otp, nms_rsd, nms_auc, nms_opd, nms_mnt, nms_trp, srb_1m_m)
+  select(record_id,  aiv_kid_evr_pa, aiv_adt_evr_pa, aiv_6m_pa, aiv_kid_evr_sex, aiv_adt_evr_sex, aiv_6m_sex, cla_2, cla_16a, cla_16c, nms_er, nms_hps_drg, nms_otp, nms_rsd, nms_auc, nms_opd, nms_mnt, nms_trp, srb_1m_m, dem_edu, nms_emp, nms_inc, nms_inc_cad, nms_inc_usd, nms_opd_med___0,	nms_opd_med___1, nms_opd_med___2, nms_opd_med___3, nms_opd_med___4, nms_opd_med___5, nms_opd_med___6, nms_opd_med_ot, odu_6m, dem_hltins)
 
 # baseline data
 m2hepprep_baseline <- m2hepprep_raw %>%
@@ -192,7 +192,6 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       TRUE ~ NA_character_
     ), 
 
-
     # Create healthcare discrimination binary variable
     healthcare_disc_bin = case_when(
       # Discrimination = "Yes" if any of the discrimination variables are "Yes"
@@ -248,7 +247,32 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     ),
     oat_ever = case_when(
       nms_opd == "" ~ NA_character_,
-      TRUE ~ nms_opd,
+      TRUE ~ nms_opd,    
+    ),
+    oral_bupe = case_when(
+      oat_ever == "No" ~ "No",
+      nms_opd_med___0 == "" ~ NA_character_,
+      TRUE ~ nms_opd_med___0
+    ),
+    lab_bupe = case_when(
+      oat_ever == "No" ~ "No",
+      nms_opd_med___1 == "" ~ NA_character_,
+      TRUE ~ nms_opd_med___1
+    ),    
+    naltrexone = case_when(
+      oat_ever == "No" ~ "No",
+      nms_opd_med___2 == "" ~ NA_character_,
+      TRUE ~ nms_opd_med___2
+    ),      
+    methadone = case_when(
+      oat_ever == "No" ~ "No",
+      nms_opd_med___4 == "" ~ NA_character_,
+      TRUE ~ nms_opd_med___4
+    ),    
+    other_oat = case_when(
+      oat_ever == "No" ~ "No",
+      nms_opd_med___6 == "" ~ NA_character_,
+      TRUE ~ nms_opd_med___6
     ),
     mental_health_prescribe_ever = case_when(
       nms_mnt == "" ~ NA_character_,
@@ -261,12 +285,48 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     sexwmen_1m = case_when(
       srb_1m_m == "" ~ NA_character_,
       TRUE ~ srb_1m_m
-    )
+    ),
+
+    # Create education status variable
+    education_status_4cat = case_when(
+      dem_edu %in% c("Middle school (Jr high school) or less", "Some high school, no diploma") ~ "Middle school or less",
+      dem_edu %in% c("High school diploma/GED or equivalent", "Junior (2-year) college / CEGEP", "Technical/trade/vocational school", "Some college (4-year college or university)") ~ "High school diploma",
+      dem_edu %in% c("College graduate (4-year college or university)", "Graduate or professional school") ~ "College graduate or higher",
+      dem_edu == "Choose not to answer" ~ "No answer",
+      dem_edu == "" ~ NA_character_,
+      TRUE ~ NA_character_
+    ),
+
+    # Create converted income variable
+    income_con = case_when(
+      !is.na(nms_inc_cad) ~ nms_inc_cad * 0.73,
+      TRUE ~ nms_inc_usd
+    ),
+    # Create income categories
+    income_4cat = case_when(
+      income_con == 0 ~ "No income",
+      income_con > 0 & income_con < 500 ~ "500",
+      income_con >= 500 & income_con <= 1500 ~ "500-1500",
+      income_con > 1500 ~ ">1500",
+      TRUE ~ NA_character_
+    ),
+    employment_current = case_when(
+      nms_emp == "" ~ NA_character_,
+      TRUE ~ nms_emp
+    ),
+    healthcare_coverage = case_when(
+      dem_hltins == "" ~ NA_character_,
+      TRUE ~ dem_hltins
+    ),
+    hr_use = case_when(
+      sdem_sev == "" ~ NA_character_,
+      TRUE ~ sdem_sev
+    )    
   )
 
 # save data
 write.csv(m2hepprep_prep_combined, "data/m2hepprep_prep_combined.csv", row.names = FALSE)
-View(m2hepprep_prep_combined)
+
 # save montreal data
 m2hepprep_prep_combined_montreal <- m2hepprep_prep_combined %>%
   filter(sdem_reside == "Greater Montreal area")
