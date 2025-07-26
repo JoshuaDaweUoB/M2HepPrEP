@@ -16,7 +16,7 @@ m2hepprep_consent <- m2hepprep_raw %>%
 # violence vars
 m2hepprep_baseline_vars <- m2hepprep_raw %>%
   filter(redcap_event_name == "Baseline") %>%
-  select(record_id,  aiv_kid_evr_pa, aiv_adt_evr_pa, aiv_6m_pa, aiv_kid_evr_sex, aiv_adt_evr_sex, aiv_6m_sex, cla_2, cla_16a, cla_16c, nms_er, nms_hps_drg, nms_otp, nms_rsd, nms_auc, nms_opd, nms_mnt, nms_trp, srb_1m_m, dem_edu, nms_emp, nms_inc, nms_inc_cad, nms_inc_usd, nms_opd_med___0,	nms_opd_med___1, nms_opd_med___2, nms_opd_med___3, nms_opd_med___4, nms_opd_med___5, nms_opd_med___6, nms_opd_med_ot, odu_6m, dem_hltins)
+  select(record_id, aiv_kid_evr_pa, aiv_adt_evr_pa, aiv_6m_pa, aiv_kid_evr_sex, aiv_adt_evr_sex, aiv_6m_sex, cla_2, cla_16a, cla_16c, nms_er, nms_hps_drg, nms_otp, nms_rsd, nms_auc, nms_opd, nms_mnt, nms_trp, srb_1m_m, dem_edu, nms_emp, nms_inc, nms_inc_cad, nms_inc_usd, nms_opd_med___0,	nms_opd_med___1, nms_opd_med___2, nms_opd_med___3, nms_opd_med___4, nms_opd_med___5, nms_opd_med___6, nms_opd_med_ot, odu_6m, dem_hltins, sdu_srg, sub_frq1m)
 
 # baseline data
 m2hepprep_baseline <- m2hepprep_raw %>%
@@ -286,7 +286,10 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       srb_1m_m == "" ~ NA_character_,
       TRUE ~ srb_1m_m
     ),
-
+    syringe_share_bin_ever = case_when(
+      sdu_srg == "" ~ NA_character_,
+      TRUE ~ sdu_srg
+    ),
     # Create education status variable
     education_status_4cat = case_when(
       dem_edu %in% c("Middle school (Jr high school) or less", "Some high school, no diploma") ~ "Middle school or less",
@@ -305,7 +308,7 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     # Create income categories
     income_4cat = case_when(
       income_con == 0 ~ "No income",
-      income_con > 0 & income_con < 500 ~ "500",
+      income_con > 0 & income_con < 500 ~ "<500",
       income_con >= 500 & income_con <= 1500 ~ "500-1500",
       income_con > 1500 ~ ">1500",
       TRUE ~ NA_character_
@@ -321,7 +324,21 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     hr_use = case_when(
       sdem_sev == "" ~ NA_character_,
       TRUE ~ sdem_sev
-    )    
+    ),
+    overdose_6m = case_when(
+      odu_6m == "" ~ NA_character_,
+      TRUE ~ odu_6m
+    ),    
+    days_used_1m = case_when(
+      sub_frq1m == "" ~ NA_real_,
+      TRUE ~ as.numeric(sub_frq1m)
+    ),    
+    days_used_1m_3cat = case_when(
+      days_used_1m > 24 ~ "25-30",
+      days_used_1m < 25 & days_used_1m > 14 ~ "15-24",
+      days_used_1m < 15 ~ "0-14",
+      TRUE ~ NA_character_
+    )
   )
 
 # save data
