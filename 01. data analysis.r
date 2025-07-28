@@ -6,25 +6,36 @@ setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/
 
 # load clean data
 m2hepprep_prep_combined <- read.csv("data/m2hepprep_prep_combined.csv")
+m2hepprep_prep_combined_montreal <- read.csv("data/m2hepprep_prep_combined_montreal.csv")
+m2hepprep_prep_combined_miami <- read.csv("data/m2hepprep_prep_combined_miami.csv")
 
-# Set reference levels 
-m2hepprep_prep_combined$education_status_4cat <- factor(m2hepprep_prep_combined$education_status_4cat, 
-                                                        levels = c("Middle school or less", "High school diploma", "College graduate or higher", "No answer"))
+# Function to set reference levels for all datasets
+set_factor_levels <- function(data) {
+  data$education_status_4cat <- factor(data$education_status_4cat, 
+                                       levels = c("Middle school or less", "High school diploma", "College graduate or higher", "No answer"))
+  
+  data$income_4cat <- factor(data$income_4cat, 
+                            levels = c("No income", "<500", "500-1500", ">1500"))
+  
+  data$employment_current <- factor(data$employment_current, 
+                                   levels = c("Employed", unique(data$employment_current)[!unique(data$employment_current) %in% c("Employed", NA)]))
+  
+  data$sdem_slep6m_binary <- factor(data$sdem_slep6m_binary, 
+                                   levels = c("Homeless", "Not homeless"))
+  
+  data$incarc_6m_bin <- factor(data$incarc_6m_bin, 
+                              levels = c("No", "Yes"))
+  
+  data$hr_use <- factor(data$hr_use, 
+                       levels = c("Syringe access program (SAP)", "Opioid agonist therapy (OAT) clinic", "Both", "None"))
+  
+  return(data)
+}
 
-m2hepprep_prep_combined$income_4cat <- factor(m2hepprep_prep_combined$income_4cat, 
-                                             levels = c("No income", "<500", "500-1500", ">1500"))
-
-m2hepprep_prep_combined$employment_current <- factor(m2hepprep_prep_combined$employment_current, 
-                                                    levels = c("Employed", unique(m2hepprep_prep_combined$employment_current)[!unique(m2hepprep_prep_combined$employment_current) %in% c("Employed", NA)]))
-
-m2hepprep_prep_combined$sdem_slep6m_binary <- factor(m2hepprep_prep_combined$sdem_slep6m_binary, 
-                                                    levels = c("Homeless", "Not homeless"))
-
-m2hepprep_prep_combined$incarc_6m_bin <- factor(m2hepprep_prep_combined$incarc_6m_bin, 
-                                               levels = c("No", "Yes"))
-
-m2hepprep_prep_combined$hr_use <- factor(m2hepprep_prep_combined$hr_use, 
-                                        levels = c("Syringe access program (SAP)", "Opioid agonist therapy (OAT) clinic", "Both", "None"))
+# Apply factor levels to all datasets
+m2hepprep_prep_combined <- set_factor_levels(m2hepprep_prep_combined)
+m2hepprep_prep_combined_montreal <- set_factor_levels(m2hepprep_prep_combined_montreal)
+m2hepprep_prep_combined_miami <- set_factor_levels(m2hepprep_prep_combined_miami)
 
 # Frequency tables
 
@@ -158,50 +169,68 @@ run_prep_logistic_regression <- function(vars, data, outcome = "prep_init", tabl
   # Run logistic regression for each variable
   for(var in vars) {
     
+    # Check if variable has sufficient levels
+    levels_count <- length(unique(data[[var]][!is.na(data[[var]])]))
+    if(levels_count < 2) {
+      cat("Skipping", var, "- insufficient variation (only", levels_count, "level)\n")
+      next
+    }
+    
     # Create formula
     formula <- as.formula(paste(outcome, "~", var))
     
-    # Run model
-    model <- glm(formula, data = data, family = binomial(link = "logit"))
-    
-    # Extract results with OR and CI
-    results <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
-    
-    # Add variable name and clean up
-    results$variable <- var
-    results <- results %>%
-      filter(term != "(Intercept)") %>%  # Remove intercept
-      select(variable, term, estimate, conf.low, conf.high, p.value) %>%
-      rename(OR = estimate, 
-             CI_lower = conf.low, 
-             CI_upper = conf.high)
-    
-    # Combine with previous results
-    logistic_results <- rbind(logistic_results, results)
+    # Run model with error handling
+    tryCatch({
+      model <- glm(formula, data = data, family = binomial(link = "logit"))
+      
+      # Extract results with OR and CI
+      results <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
+      
+      # Add variable name and clean up
+      results$variable <- var
+      results <- results %>%
+        filter(term != "(Intercept)") %>%  # Remove intercept
+        select(variable, term, estimate, conf.low, conf.high, p.value) %>%
+        rename(OR = estimate, 
+               CI_lower = conf.low, 
+               CI_upper = conf.high)
+      
+      # Combine with previous results
+      logistic_results <- rbind(logistic_results, results)
+    }, error = function(e) {
+      cat("Error with variable", var, ":", e$message, "\n")
+    })
   }
   
   # Format results
-  logistic_results <- logistic_results %>%
-    mutate(
-      OR_CI_formatted = sprintf("%.2f (%.2f-%.2f)", OR, CI_lower, CI_upper),
-      p_formatted = ifelse(p.value < 0.001, "<0.001", sprintf("%.3f", p.value))
-    ) %>%
-    select(variable, term, OR_CI_formatted, p_formatted) %>%
-    rename(Variable = variable,
-           Level = term,
-           `OR (95% CI)` = OR_CI_formatted,
-           `P-value` = p_formatted)
-  
-  # Save to CSV
-  filename <- paste0("data/", table_name, "_prep_logistic_regression.csv")
-  write.csv(logistic_results, filename, row.names = FALSE)
-  
-  # Print results
-  print(paste("PrEP initiation results for", table_name))
-  print(logistic_results)
+  if(nrow(logistic_results) > 0) {
+    logistic_results <- logistic_results %>%
+      mutate(
+        OR_CI_formatted = sprintf("%.2f (%.2f-%.2f)", OR, CI_lower, CI_upper),
+        p_formatted = ifelse(p.value < 0.001, "<0.001", sprintf("%.3f", p.value))
+      ) %>%
+      select(variable, term, OR_CI_formatted, p_formatted) %>%
+      rename(Variable = variable,
+             Level = term,
+             `OR (95% CI)` = OR_CI_formatted,
+             `P-value` = p_formatted)
+    
+    # Save to CSV
+    filename <- paste0("data/", table_name, "_prep_logistic_regression.csv")
+    write.csv(logistic_results, filename, row.names = FALSE)
+    
+    # Print results
+    print(paste("PrEP initiation results for", table_name))
+    print(logistic_results)
+  } else {
+    cat("No valid results for", table_name, "\n")
+  }
   
   return(logistic_results)
 }
+
+
+
 
 # Run for all tables with prep_init as outcome
 table1_prep_results <- run_prep_logistic_regression(table1_vars, m2hepprep_prep_combined, "prep_init", "table1")
@@ -209,88 +238,14 @@ table2_prep_results <- run_prep_logistic_regression(table2_vars, m2hepprep_prep_
 table3_prep_results <- run_prep_logistic_regression(table3_vars, m2hepprep_prep_combined, "prep_init", "table3")
 table4_prep_results <- run_prep_logistic_regression(table4_vars, m2hepprep_prep_combined, "prep_init", "table4")
 
+# run for montreal data
+table1_prep_results <- run_prep_logistic_regression(table1_vars, m2hepprep_prep_combined_montreal, "prep_init", "table1_montreal")
+table2_prep_results <- run_prep_logistic_regression(table2_vars, m2hepprep_prep_combined_montreal, "prep_init", "table2_montreal")
+table3_prep_results <- run_prep_logistic_regression(table3_vars, m2hepprep_prep_combined_montreal, "prep_init", "table3_montreal")
+table4_prep_results <- run_prep_logistic_regression(table4_vars, m2hepprep_prep_combined_montreal, "prep_init", "table4_montreal")
 
-# Create the table with row percentages and Total column
-baseline_table <- CreateTableOne(vars = baseline_vars, 
-                                strata = "prep_init", 
-                                data = m2hepprep_prep_combined,
-                                test = TRUE,
-                                addOverall = TRUE,
-                                includeNA = FALSE)
-
-# Convert table to data frame with row percentages and save to Excel
-table_df <- print(baseline_table, showAllLevels = TRUE, printToggle = FALSE, 
-                  formatOptions = list(percent = "row"))
-write.csv(table_df, "data/baseline_table_prep.csv")
-
-# Create the table with row percentages and Total column
-baseline_table <- CreateTableOne(vars = baseline_vars, 
-                                strata = "prep_init", 
-                                data = m2hepprep_prep_combined_montreal,
-                                test = TRUE,
-                                addOverall = TRUE,
-                                includeNA = FALSE)
-
-# Convert table to data frame with row percentages and save to Excel
-table_df <- print(baseline_table, showAllLevels = TRUE, printToggle = FALSE, 
-                  formatOptions = list(percent = "row"))
-write.csv(table_df, "data/baseline_table_prep_montreal.csv")
-
-# Create the table with row percentages and Total column
-baseline_table <- CreateTableOne(vars = baseline_vars, 
-                                strata = "prep_init", 
-                                data = m2hepprep_prep_combined_miami,
-                                test = TRUE,
-                                addOverall = TRUE,
-                                includeNA = FALSE)
-
-# Convert table to data frame with row percentages and save to Excel
-table_df <- print(baseline_table, showAllLevels = TRUE, printToggle = FALSE, 
-                  formatOptions = list(percent = "row"))
-write.csv(table_df, "data/baseline_table_prep_miami.csv")
-
-# prep initiation as outcome
-prep_init_model <- glm(prep_init ~ rand_arm + sdem_reside, 
-                     data = m2hepprep_prep_combined, 
-                     family = binomial(link = "logit"))
-
-# model output
-prep_init_model_results <- tidy(prep_init_model, exponentiate = TRUE, conf.int = TRUE)
-print(prep_init_model_results)
-
-# prep initiation as outcome
-prep_init_model2 <- glm(prep_init ~ sdem_reside + sdem_sex_binary + sdem_age_binary + sdem_slep6m_binary, 
-                     data = m2hepprep_prep_combined, 
-                     family = binomial(link = "logit"))
-
-# model output
-prep_init_model_results2 <- tidy(prep_init_model2, exponentiate = TRUE, conf.int = TRUE)
-print(prep_init_model_results2)
-
-# prep initiation as outcome stratified by city
-prep_init_model2 <- glm(prep_init ~ sdem_reside + sdem_sex_binary + sdem_age_binary + sdem_slep6m_binary + sdem_dis_sub, 
-                     data = m2hepprep_prep_combined, 
-                     family = binomial(link = "logit"))
-
-# model output
-prep_init_model_results2 <- tidy(prep_init_model2, exponentiate = TRUE, conf.int = TRUE)
-print(prep_init_model_results2)
-
-# Run separate models by city
-cities <- unique(m2hepprep_prep_combined$insti)
-
-for(city in cities) {
-  cat("\n=== Results for", city, "===\n")
-  
-  # Filter data for this city
-  city_data <- m2hepprep_prep_combined %>% filter(insti == city)
-  
-  # Run model
-  city_model <- glm(prep_init ~ sdem_reside + sdem_sex_binary + sdem_age_binary + sdem_slep6m_binary, 
-                   data = city_data, 
-                   family = binomial(link = "logit"))
-  
-  # Get results
-  city_results <- tidy(city_model, exponentiate = TRUE, conf.int = TRUE)
-  print(city_results)
-}
+# run for miami data
+table1_prep_results <- run_prep_logistic_regression(table1_vars, m2hepprep_prep_combined_miami, "prep_init", "table1_miami")
+table2_prep_results <- run_prep_logistic_regression(table2_vars, m2hepprep_prep_combined_miami, "prep_init", "table2_miami")
+table3_prep_results <- run_prep_logistic_regression(table3_vars, m2hepprep_prep_combined_miami, "prep_init", "table3_miami")
+table4_prep_results <- run_prep_logistic_regression(table4_vars, m2hepprep_prep_combined_miami, "prep_init", "table4_miami")
