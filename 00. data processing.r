@@ -16,7 +16,7 @@ m2hepprep_consent <- m2hepprep_raw %>%
 # violence vars
 m2hepprep_baseline_vars <- m2hepprep_raw %>%
   filter(redcap_event_name == "Baseline") %>%
-  select(record_id, aiv_kid_evr_pa, aiv_adt_evr_pa, aiv_6m_pa, aiv_kid_evr_sex, aiv_adt_evr_sex, aiv_6m_sex, cla_2, cla_16a, cla_16c, nms_er, nms_hps_drg, nms_otp, nms_rsd, nms_auc, nms_opd, nms_mnt, nms_trp, srb_1m_m, dem_edu, nms_emp, nms_inc, nms_inc_cad, nms_inc_usd, nms_opd_med___0,	nms_opd_med___1, nms_opd_med___2, nms_opd_med___3, nms_opd_med___4, nms_opd_med___5, nms_opd_med___6, nms_opd_med_ot, odu_6m, dem_hltins, sdu_srg, sub_frq1m)
+  select(record_id, aiv_kid_evr_pa, aiv_adt_evr_pa, aiv_6m_pa, aiv_kid_evr_sex, aiv_adt_evr_sex, aiv_6m_sex, cla_2, cla_16a, cla_16c, nms_er, nms_hps_drg, nms_otp, nms_rsd, nms_auc, nms_opd, nms_mnt, nms_trp, srb_1m_m, dem_edu, nms_emp, nms_inc, nms_inc_cad, nms_inc_usd, nms_opd_med___0,	nms_opd_med___1, nms_opd_med___2, nms_opd_med___3, nms_opd_med___4, nms_opd_med___5, nms_opd_med___6, nms_opd_med_ot, odu_6m, dem_hltins, sdu_srg, sub_frq1m, sub_6m1, sub_6m2, sub_6m3, sub_6m4, sub_6m5, sub_6m6, sub_6m7, sub_6m8, sub_6m9, sub_6m10, sub_6m11, sub_6m12, sub_6m13, sub_6m14, sub_6m15, sub_6m16, sub_6m17, sub_6m18, sub_6m19, sub_6m20, sub_6m21, sub_6m22, sub_6m23, sub_6m24, sub_6m25, sub_6m26, sub_6m27, sdu_wrk, idu_6mplc2___3)
 
 # baseline data
 m2hepprep_baseline <- m2hepprep_raw %>%
@@ -152,7 +152,7 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     ),
 
     # Create syringe sharing binary variable
-    syringe_share_bin = case_when(
+    syringe_share_6m_bin = case_when(
       # Risk = "Yes" if any of variables 0-6 contain the risk behavior text
       (sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before") ~ "Yes",
       # Risk = "No" if variable 7 is "None of the above / NA"
@@ -274,6 +274,11 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       nms_opd_med___6 == "" ~ NA_character_,
       TRUE ~ nms_opd_med___6
     ),
+        oat_current = case_when(
+      (other_oat == "1" | methadone == "1" | naltrexone == "1" | 
+       lab_bupe == "1" | oral_bupe == "1") ~ 1,
+      TRUE ~ 0
+    ),
     mental_health_prescribe_ever = case_when(
       nms_mnt == "" ~ NA_character_,
       TRUE ~ nms_mnt
@@ -338,6 +343,45 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       days_used_1m < 25 & days_used_1m > 14 ~ "15-24",
       days_used_1m < 15 ~ "0-14",
       TRUE ~ NA_character_
+    )
+  )
+
+# ARCH-IDU injection sub-score
+m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
+  mutate(
+    subscore_opioids = ifelse(sub_6m1 == "Yes" | sub_6m8 == "Yes" | sub_6m22 == "Yes", 1, 0),
+    subscore_stimulants = ifelse(sub_6m3 == "Yes" | sub_6m4 == "Yes" | sub_6m8 == "Yes" | sub_6m13 == "Yes", 1, 0),
+    subscore_cooker = ifelse(sdu_wrk == "Yes", 1, 0),
+    subscore_sharing = ifelse(syringe_share_6m_bin == "Yes", 1, 0),
+    subscore_gallery = ifelse(idu_6mplc2___3 == "Crack house/shooting gallery", 1, 0),
+    subscore_total = subscore_opioids + subscore_stimulants + subscore_cooker + subscore_sharing + subscore_gallery
+  )
+  
+# ARCH-IDU risk score
+m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
+  mutate(
+    arch_age = case_when(
+      sdem_age > 49 ~ 0,
+      sdem_age > 39 & sdem_age < 50 ~ 7,
+      sdem_age > 29 & sdem_age < 40 ~ 24,
+      sdem_age < 30 ~ 38,
+    ),
+    arch_oat = case_when(
+      oat_current == 0 ~ 31, 
+      oat_current == 1 ~ 0,
+    ),
+    arch_injection = case_when(
+      subscore_total == 0 ~ 0,
+      subscore_total == 1 ~ 7,
+      subscore_total == 2 ~ 21,
+      subscore_total == 3 ~ 24,
+      subscore_total == 4 ~ 24,
+      subscore_total == 5 ~ 31,
+    ),
+    arch_total = arch_age + arch_oat + arch_injection,
+    arch_bin = case_when(
+      arch_total < 46 ~ 0,
+      arch_total > 45 ~ 1,
     )
   )
 

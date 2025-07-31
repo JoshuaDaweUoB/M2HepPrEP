@@ -39,11 +39,38 @@ m2hepprep_prep_combined_miami <- set_factor_levels(m2hepprep_prep_combined_miami
 
 # Frequency tables
 
+# Create substance use summary table
+substance_vars <- c("sub_6m1", "sub_6m2", "sub_6m3", "sub_6m4", "sub_6m5", "sub_6m6", "sub_6m7", "sub_6m8", "sub_6m9", "sub_6m10", "sub_6m11", "sub_6m12", "sub_6m13", "sub_6m14", "sub_6m15", "sub_6m16", "sub_6m17", "sub_6m18", "sub_6m19", "sub_6m20", "sub_6m21", "sub_6m22", "sub_6m23", "sub_6m24", "sub_6m25", "sub_6m26", "sub_6m27")
+
+# Create summary table
+substance_table <- CreateTableOne(vars = substance_vars, 
+                                 data = m2hepprep_prep_combined,
+                                 includeNA = TRUE)
+
+# Convert table to data frame and save
+substance_table_df <- print(substance_table, showAllLevels = TRUE, printToggle = FALSE)
+write.csv(substance_table_df, "data/substance_use_summary.csv")
+
+# Print the table
+print(substance_table)
+
+# If you want to stratify by site (Montreal vs Miami)
+substance_table_stratified <- CreateTableOne(vars = substance_vars, 
+                                            strata = "sdem_reside",
+                                            data = m2hepprep_prep_combined,
+                                            test = TRUE,
+                                            addOverall = TRUE,
+                                            includeNA = TRUE)
+
+# Convert stratified table to data frame and save
+substance_table_strat_df <- print(substance_table_stratified, showAllLevels = TRUE, printToggle = FALSE)
+write.csv(substance_table_strat_df, "data/substance_use_summary_by_site.csv")
+
 # variables for tables
 table1_vars <- c("sdem_sex_binary", "sdem_age", "sdem_age_binary", "education_status_4cat", "income_4cat", "employment_current", "sdem_slep6m_binary", "incarc_6m_bin")
 table2_vars <- c("healthcare_disc_bin", "sdem_dis_sub_bin", "aiv_kid_evr_pa", "aiv_kid_evr_sex", "aiv_adt_evr_pa", "aiv_6m_pa", "aiv_adt_evr_sex", "aiv_6m_sex")
 table3_vars <- c("hr_use", "oat_ever", "oral_bupe", "lab_bupe", "naltrexone", "methadone", "other_oat", "mental_health_prescribe_ever", "therapy_ever")
-table4_vars <- c("syringe_share_bin", "syringe_loan_bin", "syringe_other_bin", "syringe_share_bin_ever", "days_used_1m_3cat", "overdose_6m", "sex_work_ever", "sexwmen_1m")
+table4_vars <- c("syringe_share_6m_bin", "syringe_loan_bin", "syringe_other_bin", "syringe_share_bin_ever", "days_used_1m_3cat", "overdose_6m", "sex_work_ever", "sexwmen_1m")
 
 # create table 1
 baseline_table <- CreateTableOne(vars = table1_vars, 
@@ -228,9 +255,6 @@ run_prep_logistic_regression <- function(vars, data, outcome = "prep_init", tabl
   
   return(logistic_results)
 }
-
-
-
 
 # Run for all tables with prep_init as outcome
 table1_prep_results <- run_prep_logistic_regression(table1_vars, m2hepprep_prep_combined, "prep_init", "table1")
