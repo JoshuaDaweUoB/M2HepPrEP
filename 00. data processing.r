@@ -51,7 +51,7 @@ m2hepprep_12m <- m2hepprep_raw %>%
 # prep initiation
 m2hepprep_tx_clean <- m2hepprep_tx_raw %>%
   select(record_id, rand_to_disp, within_6_months) %>%
-  mutate(prep_init = 1) %>%
+  mutate(prep_init = factor(1, levels = c(0, 1), labels = c("No", "Yes"))) %>%
   filter(!is.na(record_id) & record_id != "")
 
 # Create a list of visit names and their corresponding suffixes
@@ -153,17 +153,13 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
 
     # Create syringe sharing binary variable
     syringe_share_6m_bin = case_when(
-      # Risk = "Yes" if any of variables 0-6 contain the risk behavior text
-      (sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before") ~ "Yes",
-      # Risk = "No" if variable 7 is "None of the above / NA"
-      sdem_idu6m___0 == "Reuse a needle without cleaning it with bleach or boiling water first" |
-      sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton" | 
-      sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done" | 
-      sdem_idu6m___4 == "Let someone else use a needle after you used it" | 
-      sdem_idu6m___5 == "Let someone else use the rinse water, etc" | 
-      sdem_idu6m___6 == "Allow someone else to inject with drugs" |
-      sdem_idu6m___7 == "None of the above / NA" ~ "No",
-      TRUE ~ NA_character_
+      sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before" |
+      sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton" |
+      sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done" |
+      sdem_idu6m___4 == "Let someone else use a needle after you used it" |
+      sdem_idu6m___5 == "Let someone else use the rinse water, etc" |
+      sdem_idu6m___6 == "Allow someone else to inject with drugs" ~ "Yes",
+      TRUE ~ "No"
     ),
 
     # Create syringe sharing binary variable
@@ -250,33 +246,32 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       TRUE ~ nms_opd,    
     ),
     oral_bupe = case_when(
-      oat_ever == "No" ~ "No",
+      oat_ever == "No" ~ NA_character_,
       nms_opd_med___0 == "" ~ NA_character_,
       TRUE ~ nms_opd_med___0
     ),
     lab_bupe = case_when(
-      oat_ever == "No" ~ "No",
+      oat_ever == "No" ~ NA_character_,
       nms_opd_med___1 == "" ~ NA_character_,
       TRUE ~ nms_opd_med___1
-    ),    
+    ),
     naltrexone = case_when(
-      oat_ever == "No" ~ "No",
+      oat_ever == "No" ~ NA_character_,
       nms_opd_med___2 == "" ~ NA_character_,
       TRUE ~ nms_opd_med___2
-    ),      
+    ),
     methadone = case_when(
-      oat_ever == "No" ~ "No",
+      oat_ever == "No" ~ NA_character_,
       nms_opd_med___4 == "" ~ NA_character_,
       TRUE ~ nms_opd_med___4
-    ),    
+    ),
     other_oat = case_when(
-      oat_ever == "No" ~ "No",
+      oat_ever == "No" ~ NA_character_,
       nms_opd_med___6 == "" ~ NA_character_,
       TRUE ~ nms_opd_med___6
     ),
-        oat_current = case_when(
-      (other_oat == "1" | methadone == "1" | naltrexone == "1" | 
-       lab_bupe == "1" | oral_bupe == "1") ~ 1,
+    oat_current = case_when(
+      !is.na(oral_bupe) | !is.na(lab_bupe) | !is.na(naltrexone) | !is.na(methadone) | !is.na(other_oat) ~ 1,
       TRUE ~ 0
     ),
     mental_health_prescribe_ever = case_when(
@@ -356,7 +351,7 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     subscore_gallery = ifelse(idu_6mplc2___3 == "Crack house/shooting gallery", 1, 0),
     subscore_total = subscore_opioids + subscore_stimulants + subscore_cooker + subscore_sharing + subscore_gallery
   )
-  
+
 # ARCH-IDU risk score
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
   mutate(
@@ -379,11 +374,43 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       subscore_total == 5 ~ 31,
     ),
     arch_total = arch_age + arch_oat + arch_injection,
-    arch_bin = case_when(
-      arch_total < 46 ~ 0,
-      arch_total > 45 ~ 1,
-    )
+    arch_bin = factor(
+       case_when(
+        arch_total < 46 ~ 0,
+        arch_total > 45 ~ 1
+    ),
+    levels = c(0, 1),
+    labels = c("Low risk", "High risk")
+)
+
   )
+
+# summary table
+arch_vars <- c(
+  "arch_age", "arch_oat", "arch_injection", "arch_total",
+  "subscore_opioids", "subscore_stimulants", "subscore_cooker", "subscore_sharing", "subscore_gallery", "subscore_total"
+)
+
+arch_summary <- tibble::tibble(
+  Variable = arch_vars,
+  Mean = sapply(arch_vars, function(x) mean(as.numeric(m2hepprep_prep_combined[[x]]), na.rm = TRUE)),
+  SD = sapply(arch_vars, function(x) sd(as.numeric(m2hepprep_prep_combined[[x]]), na.rm = TRUE)),
+  Median = sapply(arch_vars, function(x) median(as.numeric(m2hepprep_prep_combined[[x]]), na.rm = TRUE)),
+  Min = sapply(arch_vars, function(x) min(as.numeric(m2hepprep_prep_combined[[x]]), na.rm = TRUE)),
+  Max = sapply(arch_vars, function(x) max(as.numeric(m2hepprep_prep_combined[[x]]), na.rm = TRUE)),
+  Missing = sapply(arch_vars, function(x) sum(is.na(m2hepprep_prep_combined[[x]])))
+)
+
+# For categorical variable arch_bin, add frequency table
+arch_bin_table <- m2hepprep_prep_combined %>%
+  count(arch_bin, name = "Count") %>%
+  mutate(Percent = round(Count / sum(Count) * 100, 1),
+         Missing = sum(is.na(m2hepprep_prep_combined$arch_bin)))
+
+# Save summary tables
+write.csv(arch_summary, "data/arch_score_summary.csv", row.names = FALSE)
+write.csv(arch_bin_table, "data/arch_bin_freq.csv", row.names = FALSE)
+# 303 high risk vs 89 low risk
 
 # save data
 write.csv(m2hepprep_prep_combined, "data/m2hepprep_prep_combined.csv", row.names = FALSE)
@@ -399,3 +426,4 @@ m2hepprep_prep_combined_miami <- m2hepprep_prep_combined %>%
   filter(sdem_reside == "Greater Miami area")
 
 write.csv(m2hepprep_prep_combined_miami, "data/m2hepprep_prep_combined_miami.csv", row.names = FALSE)
+
