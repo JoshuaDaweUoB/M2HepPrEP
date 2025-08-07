@@ -1,5 +1,5 @@
 # load packages
-pacman::p_load(dplyr, tidyr, readr, readxl, lubridate, tableone, broom)
+pacman::p_load(dplyr, tidyr, readr, readxl, lubridate, tableone, broom, lmtest, sandwich, logistf)
 
 # set working directory
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/Montreal paper/")
@@ -373,3 +373,54 @@ print(results)
 # Optionally, save results to CSV
 write.csv(results, "data/prepinit_archbin_sdemreside_interaction_logistic_adj.csv", row.names = FALSE)
 
+# Convert prep_init to numeric (0/1) for Poisson regression
+m2hepprep_prep_combined$prep_init_num <- as.numeric(m2hepprep_prep_combined$prep_init) - 1
+
+# Unadjusted model (interaction)
+model_pr <- glm(prep_init_num ~ arch_bin * sdem_reside + rand_arm, 
+                data = m2hepprep_prep_combined, 
+                family = poisson(link = "log"))
+
+cov_pr <- sandwich::vcovHC(model_pr, type = "HC0")
+results_pr <- broom::tidy(lmtest::coeftest(model_pr, cov_pr), exponentiate = TRUE, conf.int = TRUE)
+print(results_pr)
+write.csv(results_pr, "data/prepinit_archbin_sdemreside_interaction_PR.csv", row.names = FALSE)
+
+# Adjusted model (interaction + covariates)
+model_pr_adj <- glm(prep_init_num ~ arch_bin * sdem_reside + rand_arm + sdem_slep6m_binary + sdem_sex_binary + healthcare_disc_bin + incarc_6m_bin, 
+                    data = m2hepprep_prep_combined, 
+                    family = poisson(link = "log"))
+
+cov_pr_adj <- sandwich::vcovHC(model_pr_adj, type = "HC0")
+results_pr_adj <- broom::tidy(lmtest::coeftest(model_pr_adj, cov_pr_adj), exponentiate = TRUE, conf.int = TRUE)
+print(results_pr_adj)
+write.csv(results_pr_adj, "data/prepinit_archbin_sdemreside_interaction_PR_adj.csv", row.names = FALSE)
+
+
+# Unadjusted exact logistic regression (interaction)
+model_exact <- logistf(prep_init ~ arch_bin * sdem_reside + rand_arm, 
+                       data = m2hepprep_prep_combined)
+
+results_exact <- data.frame(
+  term = names(model_exact$coefficients),
+  estimate = exp(model_exact$coefficients),
+  conf.low = exp(model_exact$ci.lower),
+  conf.high = exp(model_exact$ci.upper),
+  p.value = model_exact$prob
+)
+print(results_exact)
+write.csv(results_exact, "data/prepinit_archbin_sdemreside_interaction_logistic_exact.csv", row.names = FALSE)
+
+# Adjusted exact logistic regression (interaction + covariates)
+model_exact_adj <- logistf(prep_init ~ arch_bin * sdem_reside + rand_arm + sdem_slep6m_binary + sdem_sex_binary + healthcare_disc_bin + incarc_6m_bin, 
+                           data = m2hepprep_prep_combined)
+
+results_exact_adj <- data.frame(
+  term = names(model_exact_adj$coefficients),
+  estimate = exp(model_exact_adj$coefficients),
+  conf.low = exp(model_exact_adj$ci.lower),
+  conf.high = exp(model_exact_adj$ci.upper),
+  p.value = model_exact_adj$prob
+)
+print(results_exact_adj)
+write.csv(results_exact_adj, "data/prepinit_archbin_sdemreside_interaction_logistic_exact_adj.csv", row.names = FALSE)
