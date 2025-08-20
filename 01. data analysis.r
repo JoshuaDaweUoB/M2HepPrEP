@@ -281,6 +281,153 @@ m2hepprep_prep_combined$sdem_reside_binary <- ifelse(m2hepprep_prep_combined$sde
 # table3_prep_results <- run_prep_logistic_regression(table3_vars, m2hepprep_prep_combined_miami, "prep_init", "table3_miami")
 # table4_prep_results <- run_prep_logistic_regression(table4_vars, m2hepprep_prep_combined_miami, "prep_init", "table4_miami")
 
+# arch_bin characteristics
+library(tidyr)
+library(dplyr)
+
+# Specify arch_vars
+arch_vars <- c(
+  "arch_age", "arch_oat", "subscore_opioids", "subscore_stimulants", "subscore_cooker", "subscore_sharing", "subscore_gallery"
+)
+
+# Ensure arch_total is numeric and others are factors
+m2hepprep_prep_combined$arch_total <- as.numeric(m2hepprep_prep_combined$arch_total)
+factor_vars <- setdiff(arch_vars, "arch_total")
+m2hepprep_prep_combined[factor_vars] <- lapply(m2hepprep_prep_combined[factor_vars], as.factor)
+
+# Overall categorical summary for other arch_vars
+arch_cat_summary_overall <- do.call(rbind, lapply(factor_vars, function(var) {
+  tab <- table(m2hepprep_prep_combined[[var]], useNA = "ifany")
+  percent <- round(100 * tab / sum(tab), 1)
+  data.frame(
+    Variable = var,
+    Level = names(tab),
+    Overall_Count = as.numeric(tab),
+    Overall_Percent = as.numeric(percent)
+  )
+}))
+
+# Stratified categorical summary for other arch_vars by city (long format)
+arch_cat_summary_by_city_long <- do.call(rbind, lapply(factor_vars, function(var) {
+  tab <- table(m2hepprep_prep_combined[[var]], m2hepprep_prep_combined$sdem_reside, useNA = "ifany")
+  res <- as.data.frame(tab)
+  res$Percent <- round(100 * res$Freq / tapply(res$Freq, res$Var2, sum)[res$Var2], 1)
+  res$Variable <- var
+  res[, c("Variable", "Var1", "Var2", "Freq", "Percent")]
+}))
+names(arch_cat_summary_by_city_long)[2:3] <- c("Level", "City")
+names(arch_cat_summary_by_city_long)[4] <- "Count"
+
+# Pivot to wide format: separate columns for each city
+arch_cat_summary_by_city_wide <- arch_cat_summary_by_city_long %>%
+  pivot_wider(
+    id_cols = c(Variable, Level),
+    names_from = City,
+    values_from = c(Count, Percent),
+    values_fill = 0
+  )
+
+# Concatenate count and percent for each city and overall
+city_names <- unique(arch_cat_summary_by_city_long$City)
+for(city in city_names) {
+  count_col <- paste0("Count_", city)
+  percent_col <- paste0("Percent_", city)
+  new_col <- paste0(city, "_CountPercent")
+  arch_cat_summary_by_city_wide[[new_col]] <- paste0(
+    arch_cat_summary_by_city_wide[[count_col]], " (", arch_cat_summary_by_city_wide[[percent_col]], "%)"
+  )
+}
+
+# Merge overall and city-wide summaries
+arch_cat_summary_combined <- arch_cat_summary_by_city_wide %>%
+  left_join(arch_cat_summary_overall %>%
+              mutate(Overall_CountPercent = paste0(Overall_Count, " (", Overall_Percent, "%)")) %>%
+              select(Variable, Level, Overall_CountPercent),
+            by = c("Variable", "Level"))
+
+# Arrange columns: Variable, Level, Overall, Montreal, Miami, etc.
+final_cols <- c("Variable", "Level", "Overall_CountPercent", paste0(city_names, "_CountPercent"))
+arch_cat_summary_combined <- arch_cat_summary_combined[, final_cols]
+
+# Add an empty row between each variable in the combined summary
+arch_cat_summary_combined_with_space <- arch_cat_summary_combined %>%
+  group_by(Variable) %>%
+  do(bind_rows(., tibble(Variable = "", Level = "", Overall_CountPercent = "", !!!setNames(rep("", length(city_names)), paste0(city_names, "_CountPercent"))))) %>%
+  ungroup()
+
+# Save with empty rows
+write.csv(arch_cat_summary_combined_with_space, "data/arch_categorical_summary_combined.csv", row.names = FALSE)
+
+# Ensure arch_total is numeric
+m2hepprep_prep_combined$arch_total <- as.numeric(m2hepprep_prep_combined$arch_total)
+
+# Overall mean and SD
+overall_mean <- mean(m2hepprep_prep_combined$arch_total, na.rm = TRUE)
+overall_sd <- sd(m2hepprep_prep_combined$arch_total, na.rm = TRUE)
+
+# By city mean and SD
+arch_total_by_city <- m2hepprep_prep_combined %>%
+  group_by(sdem_reside) %>%
+  summarise(
+    Mean = mean(arch_total, na.rm = TRUE),
+    SD = sd(arch_total, na.rm = TRUE)
+  ) %>%
+  rename(City = sdem_reside)
+
+# Combine overall and city results
+arch_total_summary <- bind_rows(
+  tibble(City = "Overall", Mean = overall_mean, SD = overall_sd),
+  arch_total_by_city
+)
+
+# Save to CSV
+write.csv(arch_total_summary, "data/arch_total_score_mean_sd_by_city.csv", row.names = FALSE)
+
+## associations with prep initiation
+
+# Run logistic regression for each arch_var predicting prep_init
+arch_regression_results <- lapply(arch_vars, function(var) {
+  # Only run if variable has at least 2 levels
+  if(length(unique(m2hepprep_prep_combined[[var]][!is.na(m2hepprep_prep_combined[[var]])])) < 2) return(NULL)
+  formula <- as.formula(paste("prep_init ~", var))
+  model <- glm(formula, data = m2hepprep_prep_combined, family = binomial(link = "logit"))
+  results <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
+  results$Variable <- var
+  results
+})
+
+# Combine results and format
+arch_regression_results_df <- bind_rows(arch_regression_results) %>%
+  filter(term != "(Intercept)") %>%
+  mutate(
+    OR_CI = sprintf("%.2f (%.2f-%.2f)", estimate, conf.low, conf.high), # use hyphen
+    p_formatted = ifelse(p.value < 0.001, "<0.001", sprintf("%.3f", p.value))
+  ) %>%
+  select(Variable, term, OR_CI, p_formatted) %>%
+  rename(Level = term, `OR (95% CI)` = OR_CI, `P-value` = p_formatted)
+
+# Save to CSV
+write.csv(arch_regression_results_df, "data/arch_vars_prepinit_logistic_regression.csv", row.names = FALSE)
+
+
+
+
+
+
+
+
+
+
+# For categorical variable arch_bin, add frequency table
+arch_bin_table <- m2hepprep_prep_combined %>%
+  count(arch_bin, name = "Count") %>%
+  mutate(Percent = round(Count / sum(Count) * 100, 1),
+         Missing = sum(is.na(m2hepprep_prep_combined$arch_bin)))
+
+# Save summary tables
+write.csv(arch_summary, "data/arch_score_summary.csv", row.names = FALSE)
+write.csv(arch_bin_table, "data/arch_bin_freq.csv", row.names = FALSE)
+
 # Table: PrEP initiation by arch_bin, overall and by site
 
 # Overall table

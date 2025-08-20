@@ -385,33 +385,6 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
 
   )
 
-# summary table
-arch_vars <- c(
-  "arch_age", "arch_oat", "arch_injection", "arch_total",
-  "subscore_opioids", "subscore_stimulants", "subscore_cooker", "subscore_sharing", "subscore_gallery", "subscore_total"
-)
-
-arch_summary <- tibble::tibble(
-  Variable = arch_vars,
-  Mean = sapply(arch_vars, function(x) mean(as.numeric(m2hepprep_prep_combined[[x]]), na.rm = TRUE)),
-  SD = sapply(arch_vars, function(x) sd(as.numeric(m2hepprep_prep_combined[[x]]), na.rm = TRUE)),
-  Median = sapply(arch_vars, function(x) median(as.numeric(m2hepprep_prep_combined[[x]]), na.rm = TRUE)),
-  Min = sapply(arch_vars, function(x) min(as.numeric(m2hepprep_prep_combined[[x]]), na.rm = TRUE)),
-  Max = sapply(arch_vars, function(x) max(as.numeric(m2hepprep_prep_combined[[x]]), na.rm = TRUE)),
-  Missing = sapply(arch_vars, function(x) sum(is.na(m2hepprep_prep_combined[[x]])))
-)
-
-# For categorical variable arch_bin, add frequency table
-arch_bin_table <- m2hepprep_prep_combined %>%
-  count(arch_bin, name = "Count") %>%
-  mutate(Percent = round(Count / sum(Count) * 100, 1),
-         Missing = sum(is.na(m2hepprep_prep_combined$arch_bin)))
-
-# Save summary tables
-write.csv(arch_summary, "data/arch_score_summary.csv", row.names = FALSE)
-write.csv(arch_bin_table, "data/arch_bin_freq.csv", row.names = FALSE)
-# 303 high risk vs 89 low risk
-
 # save data
 write.csv(m2hepprep_prep_combined, "data/m2hepprep_prep_combined.csv", row.names = FALSE)
 
