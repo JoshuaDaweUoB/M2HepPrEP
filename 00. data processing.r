@@ -16,7 +16,7 @@ m2hepprep_consent <- m2hepprep_raw %>%
 # violence vars
 m2hepprep_baseline_vars <- m2hepprep_raw %>%
   filter(redcap_event_name == "Baseline") %>%
-  select(record_id, aiv_kid_evr_pa, aiv_adt_evr_pa, aiv_6m_pa, aiv_kid_evr_sex, aiv_adt_evr_sex, aiv_6m_sex, cla_2, cla_16a, cla_16c, nms_er, nms_hps_drg, nms_otp, nms_rsd, nms_auc, nms_opd, nms_mnt, nms_trp, srb_1m_m, dem_edu, nms_emp, nms_inc, nms_inc_cad, nms_inc_usd, nms_opd_med___0,	nms_opd_med___1, nms_opd_med___2, nms_opd_med___3, nms_opd_med___4, nms_opd_med___5, nms_opd_med___6, nms_opd_med_ot, odu_6m, dem_hltins, sdu_srg, sub_frq1m, sub_6m1, sub_6m2, sub_6m3, sub_6m4, sub_6m5, sub_6m6, sub_6m7, sub_6m8, sub_6m9, sub_6m10, sub_6m11, sub_6m12, sub_6m13, sub_6m14, sub_6m15, sub_6m16, sub_6m17, sub_6m18, sub_6m19, sub_6m20, sub_6m21, sub_6m22, sub_6m23, sub_6m24, sub_6m25, sub_6m26, sub_6m27, sdu_wrk, idu_6mplc2___3)
+  select(record_id, aiv_kid_evr_pa, aiv_adt_evr_pa, aiv_6m_pa, aiv_kid_evr_sex, aiv_adt_evr_sex, aiv_6m_sex, cla_2, cla_16a, cla_16c, nms_er, nms_hps_drg, nms_otp, nms_rsd, nms_auc, nms_opd, nms_mnt, nms_trp, srb_1m_m, dem_edu, nms_emp, nms_inc, nms_inc_cad, nms_inc_usd, nms_opd_med___0,	nms_opd_med___1, nms_opd_med___2, nms_opd_med___3, nms_opd_med___4, nms_opd_med___5, nms_opd_med___6, nms_opd_med_ot, odu_6m, dem_hltins, sdu_srg, sub_frq1m, sub_6m1, sub_6m2, sub_6m3, sub_6m4, sub_6m5, sub_6m6, sub_6m7, sub_6m8, sub_6m9, sub_6m10, sub_6m11, sub_6m12, sub_6m13, sub_6m14, sub_6m15, sub_6m16, sub_6m17, sub_6m18, sub_6m19, sub_6m20, sub_6m21, sub_6m22, sub_6m23, sub_6m24, sub_6m25, sub_6m26, sub_6m27, sdu_wrk, idu_6mplc2___3, dem_gender_id, dem_gender)
 
 # baseline data
 m2hepprep_baseline <- m2hepprep_raw %>%
@@ -282,9 +282,10 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       nms_trp == "" ~ NA_character_,
       TRUE ~ nms_trp
     ),
-    sexwmen_1m = case_when(
-      srb_1m_m == "" ~ NA_character_,
-      TRUE ~ srb_1m_m
+    msm_ever = case_when(
+    dem_gender == "Man" & (dem_gender_id == "Homosexual" | dem_gender_id == "Bisexual") ~ 1,
+    dem_gender == "Man" & (dem_gender_id == "Heterosexual" | dem_gender_id == "Other") ~ 0,
+    TRUE ~ NA_real_
     ),
     syringe_share_bin_ever = case_when(
       sdu_srg == "" ~ NA_character_,
@@ -338,8 +339,20 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       days_used_1m < 25 & days_used_1m > 14 ~ "15-24",
       days_used_1m < 15 ~ "0-14",
       TRUE ~ NA_character_
+    ),
+    nsp_use = case_when(
+      sdem_sev == "Syringe access program (SAP)" | sdem_sev == "Both" ~ 1,
+      sdem_sev == "None" | sdem_sev == "Opioid agonist therapy (OAT) clinic" ~ 0
     )
   )
+
+
+
+
+
+
+
+
 
 # ARCH-IDU injection sub-score
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
@@ -352,13 +365,6 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     subscore_total = subscore_opioids + subscore_stimulants + subscore_cooker + subscore_sharing + subscore_gallery
   )
 
-table <- m2hepprep_prep_combined %>%
-  select(oat_current, sdem_sev, sdem_reside) %>%
-  tbl_summary(by = sdem_reside, include = c(oat_current, sdem_sev))
-
-table
-
-
 # ARCH-IDU risk score
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
   mutate(
@@ -369,8 +375,9 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       sdem_age < 30 ~ 38,
     ),
     arch_oat = case_when(
-      sdem_sev == 1 | sdem_sev == 3 ~ 31, 
-      sdem_sev == 0 | sdem_sev == 2 ~ 0,
+      sdem_sev == "Syringe access program (SAP)" | sdem_sev == "None" ~ 31, 
+      sdem_sev == "Both" | sdem_sev == "Opioid agonist therapy (OAT) clinic" ~ 0,
+      TRUE ~ NA_real_
     ),
     arch_injection = case_when(
       subscore_total == 0 ~ 0,
