@@ -1,5 +1,5 @@
 # load packages
-pacman::p_load(dplyr, tidyr, readr, readxl, lubridate, tableone)
+pacman::p_load(dplyr, tidyr, readr, readxl, lubridate, tableone, gtsummary, xfun)
 
 # set working directory
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/Montreal paper/")
@@ -352,6 +352,13 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     subscore_total = subscore_opioids + subscore_stimulants + subscore_cooker + subscore_sharing + subscore_gallery
   )
 
+table <- m2hepprep_prep_combined %>%
+  select(oat_current, sdem_sev, sdem_reside) %>%
+  tbl_summary(by = sdem_reside, include = c(oat_current, sdem_sev))
+
+table
+
+
 # ARCH-IDU risk score
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
   mutate(
@@ -362,8 +369,8 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       sdem_age < 30 ~ 38,
     ),
     arch_oat = case_when(
-      oat_current == 0 ~ 31, 
-      oat_current == 1 ~ 0,
+      sdem_sev == 1 | sdem_sev == 3 ~ 31, 
+      sdem_sev == 0 | sdem_sev == 2 ~ 0,
     ),
     arch_injection = case_when(
       subscore_total == 0 ~ 0,
