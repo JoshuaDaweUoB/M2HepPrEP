@@ -8,15 +8,30 @@ setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/
 m2hepprep_raw <- read.csv("data/cleaned_m2_data_05012025 (1).csv")
 m2hepprep_tx_raw <- read.csv("data/Initiation and adhrence.csv")
 
+# sheet of baseline/screening rows
+df_filtered <- m2hepprep_raw %>%
+  filter(redcap_event_name == "Baseline" | redcap_event_name == "Screening (visit 1)")
+df_filtered_complete <- df_filtered[, colSums(is.na(df_filtered)) == 0]
+write_xlsx(df_filtered_complete, "data/baseline_or_screening_complete.xlsx")
+
 # informed consent
 m2hepprep_consent <- m2hepprep_raw %>%
   filter(redcap_event_name == "Baseline") %>%
   select(record_id, rc_informed)
 
-# violence vars
+# baseline vars
 m2hepprep_baseline_vars <- m2hepprep_raw %>%
   filter(redcap_event_name == "Baseline") %>%
-  select(record_id, aiv_kid_evr_pa, aiv_adt_evr_pa, aiv_6m_pa, aiv_kid_evr_sex, aiv_adt_evr_sex, aiv_6m_sex, cla_2, cla_16a, cla_16c, nms_er, nms_hps_drg, nms_otp, nms_rsd, nms_auc, nms_opd, nms_mnt, nms_trp, srb_1m_m, dem_edu, nms_emp, nms_inc, nms_inc_cad, nms_inc_usd, nms_opd_med___0,	nms_opd_med___1, nms_opd_med___2, nms_opd_med___3, nms_opd_med___4, nms_opd_med___5, nms_opd_med___6, nms_opd_med_ot, odu_6m, dem_hltins, sdu_srg, sub_frq1m, sub_6m1, sub_6m2, sub_6m3, sub_6m4, sub_6m5, sub_6m6, sub_6m7, sub_6m8, sub_6m9, sub_6m10, sub_6m11, sub_6m12, sub_6m13, sub_6m14, sub_6m15, sub_6m16, sub_6m17, sub_6m18, sub_6m19, sub_6m20, sub_6m21, sub_6m22, sub_6m23, sub_6m24, sub_6m25, sub_6m26, sub_6m27, sdu_wrk, idu_6mplc2___3, dem_gender_id, dem_gender)
+  select(
+    record_id, aiv_kid_evr_pa, aiv_adt_evr_pa, aiv_6m_pa, aiv_kid_evr_sex, aiv_adt_evr_sex, aiv_6m_sex,
+    cla_2, cla_16a, cla_16c, nms_er, nms_hps_drg, nms_otp, nms_rsd, nms_auc, nms_opd, nms_mnt, nms_trp,
+    srb_1m_m, dem_edu, nms_emp, nms_inc, nms_inc_cad, nms_inc_usd,
+    nms_opd_med___0, nms_opd_med___1, nms_opd_med___2, nms_opd_med___3, nms_opd_med___4, nms_opd_med___5, nms_opd_med___6, nms_opd_med_ot,
+    odu_6m, dem_hltins, sdu_srg, sub_frq1m,
+    sub_6m1, sub_6m2, sub_6m3, sub_6m4, sub_6m5, sub_6m6, sub_6m7, sub_6m8, sub_6m9, sub_6m10, sub_6m11, sub_6m12, sub_6m13, sub_6m14, sub_6m15, sub_6m16, sub_6m17, sub_6m18, sub_6m19, sub_6m20, sub_6m21, sub_6m22, sub_6m23, sub_6m24, sub_6m25, sub_6m26, sub_6m27,
+    sdu_wrk, sdu_wrk_6m_frq, idu_6mplc2___3, dem_gender_id, dem_gender,
+    srb_3m, srb_3m_f, srb_1m_fc_pv, srb_1m_fc_pa, srb_1m_fc_npv, srb_1m_fc_npa, srb_1m_fc_cv, srb_1m_fc_ca, srb_1m_fc_mcv, srb_1m_fc_mco, srb_1m_fc_mca
+  )
 
 # baseline data
 m2hepprep_baseline <- m2hepprep_raw %>%
@@ -150,15 +165,39 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
                          "Transitional") ~ "Not homeless",
       TRUE ~ NA_character_
     ),
-
+    condom_1m = replace_na(
+      case_when(
+        srb_3m != "Yes" & srb_3m_f != "Yes" ~ 0,
+        srb_1m_fc_pv %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_pa %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_npv %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_npa %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_cv %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_ca %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_mcv %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_mco %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_mca %in% c("Never", "Rarely", "Some of the time") ~ 1,
+        srb_1m_fc_pv %in% c("Very often", "Always") |
+        srb_1m_fc_pa %in% c("Very often", "Always") |
+        srb_1m_fc_npv %in% c("Very often", "Always") |
+        srb_1m_fc_npa %in% c("Very often", "Always") |
+        srb_1m_fc_cv %in% c("Very often", "Always") |
+        srb_1m_fc_ca %in% c("Very often", "Always") |
+        srb_1m_fc_mcv %in% c("Very often", "Always") |
+        srb_1m_fc_mco %in% c("Very often", "Always") |
+        srb_1m_fc_mca %in% c("Very often", "Always") ~ 2,
+        TRUE ~ NA_real_
+      ),
+      0
+    ),
     # Create syringe sharing binary variable
     syringe_share_6m_bin = case_when(
       sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before" |
-      sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton" |
-      sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done" |
-      sdem_idu6m___4 == "Let someone else use a needle after you used it" |
-      sdem_idu6m___5 == "Let someone else use the rinse water, etc" |
-      sdem_idu6m___6 == "Allow someone else to inject with drugs" ~ "Yes",
+      #sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton" |
+      sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done" ~ "Yes",
+      #sdem_idu6m___4 == "Let someone else use a needle after you used it" |
+      #sdem_idu6m___5 == "Let someone else use the rinse water, etc" |
+      #sdem_idu6m___6 == "Allow someone else to inject with drugs" 
       TRUE ~ "No"
     ),
 
@@ -245,33 +284,23 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       nms_opd == "" ~ NA_character_,
       TRUE ~ nms_opd,    
     ),
-    oral_bupe = case_when(
-      oat_ever == "No" ~ NA_character_,
-      nms_opd_med___0 == "" ~ NA_character_,
-      TRUE ~ nms_opd_med___0
+    bupe_current = case_when(
+      nms_opd_med___0 == "Buprenorphine (oral)" ~ 1,  TRUE ~ 0
     ),
-    lab_bupe = case_when(
-      oat_ever == "No" ~ NA_character_,
-      nms_opd_med___1 == "" ~ NA_character_,
-      TRUE ~ nms_opd_med___1
+    lab_bupe_current = case_when(
+      nms_opd_med___1 == "Buprenorphine (implant / inj.)" ~ 1,  TRUE ~ 0
     ),
-    naltrexone = case_when(
-      oat_ever == "No" ~ NA_character_,
-      nms_opd_med___2 == "" ~ NA_character_,
-      TRUE ~ nms_opd_med___2
+    methadone_current = case_when(
+      nms_opd_med___4 == "Methadone" ~ 1,  TRUE ~ 0
+    ), 
+    naltrexone_current = case_when(
+      nms_opd_med___2 == "Naltrexone (oral)" ~ 1,  TRUE ~ 0
     ),
-    methadone = case_when(
-      oat_ever == "No" ~ NA_character_,
-      nms_opd_med___4 == "" ~ NA_character_,
-      TRUE ~ nms_opd_med___4
-    ),
-    other_oat = case_when(
-      oat_ever == "No" ~ NA_character_,
-      nms_opd_med___6 == "" ~ NA_character_,
-      TRUE ~ nms_opd_med___6
+    other_oat_current = case_when(
+      nms_opd_med___6 == "Other" ~ 1,  TRUE ~ 0
     ),
     oat_current = case_when(
-      !is.na(oral_bupe) | !is.na(lab_bupe) | !is.na(naltrexone) | !is.na(methadone) | !is.na(other_oat) ~ 1,
+      bupe_current == 1 | methadone_current == 1 | lab_bupe_current == 1 | other_oat_current == 1 ~ 1,
       TRUE ~ 0
     ),
     mental_health_prescribe_ever = case_when(
@@ -335,7 +364,7 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       TRUE ~ as.numeric(sub_frq1m)
     ),    
     days_used_1m_3cat = case_when(
-      days_used_1m > 24 ~ "25-30",
+      days_used_1m > 24 ~ "25-30", 
       days_used_1m < 25 & days_used_1m > 14 ~ "15-24",
       days_used_1m < 15 ~ "0-14",
       TRUE ~ NA_character_
@@ -343,27 +372,57 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     nsp_use = case_when(
       sdem_sev == "Syringe access program (SAP)" | sdem_sev == "Both" ~ 1,
       sdem_sev == "None" | sdem_sev == "Opioid agonist therapy (OAT) clinic" ~ 0
-    )
+    ),
+
+    inject_stims_6m = ifelse(sub_6m3 == "Yes" | sub_6m4 == "Yes" | sub_6m8 == "Yes" | sub_6m13 == "Yes", 1, 0),
+
+    inject_opioids_6m = ifelse(sub_6m1 == "Yes" | sub_6m8 == "Yes" | sub_6m9 == "Yes" | sub_6m10 == "Yes" | sub_6m11 == "Yes" | sub_6m12 == "Yes" | sub_6m22 == "Yes", 1, 0),
+
+    inject_heroin_6m = ifelse(sub_6m1 == "Yes", 1, 0),
+
+    inject_cocaine_6m = ifelse(sub_6m3 == "Yes" | sub_6m4 == "Yes", 1, 0),
+
+    inject_fent_6m = ifelse(sub_6m27 == "Yes", 1, 0),
+
+    inject_meth_6m = ifelse(sub_6m13 == "Yes", 1, 0)
   )
-
-
-
-
-
-
-
-
 
 # ARCH-IDU injection sub-score
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
   mutate(
-    subscore_opioids = ifelse(sub_6m1 == "Yes" | sub_6m8 == "Yes" | sub_6m22 == "Yes", 1, 0),
-    subscore_stimulants = ifelse(sub_6m3 == "Yes" | sub_6m4 == "Yes" | sub_6m8 == "Yes" | sub_6m13 == "Yes", 1, 0),
-    subscore_cooker = ifelse(sdu_wrk == "Yes", 1, 0),
+    subscore_cocaine = ifelse(inject_cocaine_6m, 1, 0),
+    subscore_heroin = ifelse(inject_heroin_6m, 1, 0),
+    subscore_cooker = ifelse(
+      sdu_wrk_6m_frq %in% c("One time", "Less than 5 times", "6-10 times", "More than 10 times", "More than 100 times") |
+      sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton",
+      1, 0
+    ),
     subscore_sharing = ifelse(syringe_share_6m_bin == "Yes", 1, 0),
     subscore_gallery = ifelse(idu_6mplc2___3 == "Crack house/shooting gallery", 1, 0),
-    subscore_total = subscore_opioids + subscore_stimulants + subscore_cooker + subscore_sharing + subscore_gallery
+    subscore_total = subscore_heroin + subscore_cocaine + subscore_cooker + subscore_sharing + subscore_gallery
   )
+
+# ARCH-IDU injection sub-score sensitivity
+m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
+  mutate(
+    subscore_stims = ifelse(inject_stims_6m, 1, 0),
+    subscore_opioids = ifelse(inject_opioids_6m, 1, 0),
+    subscore_cooker = ifelse(
+      sdu_wrk_6m_frq %in% c("One time", "Less than 5 times", "6-10 times", "More than 10 times", "More than 100 times") |
+      sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton",
+      1, 0
+    ),
+    subscore_sharing = ifelse(syringe_share_6m_bin == "Yes", 1, 0),
+    subscore_gallery = ifelse(idu_6mplc2___3 == "Crack house/shooting gallery", 1, 0),
+    subscore_total = subscore_heroin + subscore_cocaine + subscore_cooker + subscore_sharing + subscore_gallery
+  )
+
+# tab five subscore variables
+tab_subscores <- CreateTableOne(
+  vars = c("subscore_heroin", "subscore_cocaine", "subscore_cooker", "subscore_sharing", "subscore_gallery"),
+  data = m2hepprep_prep_combined
+)
+print(tab_subscores, showAllLevels = TRUE)
 
 # ARCH-IDU risk score
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
@@ -375,8 +434,8 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       sdem_age < 30 ~ 38,
     ),
     arch_oat = case_when(
-      sdem_sev == "Syringe access program (SAP)" | sdem_sev == "None" ~ 31, 
-      sdem_sev == "Both" | sdem_sev == "Opioid agonist therapy (OAT) clinic" ~ 0,
+      oat_current == 1 ~ 0,
+      oat_current == 0 ~ 31,
       TRUE ~ NA_real_
     ),
     arch_injection = case_when(
@@ -395,12 +454,57 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     ),
     levels = c(0, 1),
     labels = c("Low risk", "High risk")
-)
-
-  )
+))
 
 # save data
 write.csv(m2hepprep_prep_combined, "data/m2hepprep_prep_combined.csv", row.names = FALSE)
+
+# ARCH-IDU injection sub-score sensitivity (using opioids and stimulants instead of heroin and cocaine)
+m2hepprep_prep_combined_sens <- m2hepprep_prep_combined %>%
+  mutate(
+    subscore_opioids_sens = ifelse(inject_opioids_6m, 1, 0),
+    subscore_stims_sens = ifelse(inject_stims_6m, 1, 0),
+    subscore_cooker_sens = ifelse(
+      sdu_wrk_6m_frq %in% c("One time", "Less than 5 times", "6-10 times", "More than 10 times", "More than 100 times") |
+      sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton",
+      1, 0
+    ),
+    subscore_sharing_sens = ifelse(syringe_share_6m_bin == "Yes", 1, 0),
+    subscore_gallery_sens = ifelse(idu_6mplc2___3 == "Crack house/shooting gallery", 1, 0),
+    subscore_total_sens = subscore_opioids_sens + subscore_stims_sens + subscore_cooker_sens + subscore_sharing_sens + subscore_gallery_sens,
+    arch_injection_sens = case_when(
+      subscore_total_sens == 0 ~ 0,
+      subscore_total_sens == 1 ~ 7,
+      subscore_total_sens == 2 ~ 21,
+      subscore_total_sens == 3 ~ 24,
+      subscore_total_sens == 4 ~ 24,
+      subscore_total_sens == 5 ~ 31,
+    ),
+    arch_total_sens = arch_age + arch_oat + arch_injection_sens,
+    arch_bin_sens = factor(
+      case_when(
+        arch_total_sens < 46 ~ 0,
+        arch_total_sens > 45 ~ 1
+      ),
+      levels = c(0, 1),
+      labels = c("Low risk", "High risk")
+    )
+  )
+
+# Save sensitivity dataframe
+write.csv(m2hepprep_prep_combined_sens, "data/m2hepprep_prep_combined_sens.csv", row.names = FALSE)
+
+# Save city-specific sensitivity dataframes
+m2hepprep_prep_combined_montreal_sens <- m2hepprep_prep_combined_sens %>%
+  filter(sdem_reside == "Greater Montreal area")
+write.csv(m2hepprep_prep_combined_montreal_sens, "data/m2hepprep_prep_combined_montreal_sens.csv", row.names = FALSE)
+
+m2hepprep_prep_combined_miami_sens <- m2hepprep_prep_combined_sens %>%
+  filter(sdem_reside == "Greater Miami area")
+write.csv(m2hepprep_prep_combined_miami_sens, "data/m2hepprep_prep_combined_miami_sens.csv", row.names = FALSE)
+
+# save data
+write.csv(m2hepprep_prep_combined_sensitivity, "data/m2hepprep_prep_combined_sensitivity.csv", row.names = FALSE)
 
 # save montreal data
 m2hepprep_prep_combined_montreal <- m2hepprep_prep_combined %>%
