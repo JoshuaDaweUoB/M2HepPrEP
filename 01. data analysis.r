@@ -182,20 +182,34 @@ arch_total_summary <- bind_rows(
 write.csv(arch_total_summary, "data/arch_total_score_mean_sd_by_city.csv", row.names = FALSE)
 
 ## associations with prep initiation
+sociostructural_risks <- c("sdem_sex_binary", "sdem_age_binary", "sdem_slep6m_binary", "incarc_6m_bin", "healthcare_coverage", "hr_use", "oat_current", "bupe_current", "methadone_current", "naltrexone_current", "other_oat_current")
 
-# Run logistic regression for each arch_var predicting prep_init, adjusted for sdem_reside and rand_arm
-arch_regression_results <- lapply(arch_vars, function(var) {
-  # Only run if variable has at least 2 levels
-  if(length(unique(m2hepprep_prep_combined[[var]][!is.na(m2hepprep_prep_combined[[var]])])) < 2) return(NULL)
-  formula <- as.formula(paste("prep_init ~", var, "+ rand_arm + sdem_reside"))
-  model <- glm(formula, data = m2hepprep_prep_combined, family = binomial(link = "logit"))
-  results <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
-  results$Variable <- var
-  results
+injecting_risks <- c("inject_opioids_6m", "inject_stims_6m", "inject_heroin_6m", "inject_cocaine_6m", "inject_meth_6m", "inject_fent_6m", "syringe_share_6m_bin", "syringe_loan_bin", "days_used_1m_3cat", "overdose_6m")
+
+sexual_risks <- c("condom_1m", "sexwork_3m", "sex_work_ever", "bought_sex_3m", "aiv_adt_evr_sex", "aiv_6m_sex", "any_sex_3m", "num_sex_partners_3m", "sex_on_any_drug_1m")
+
+# Lists of variables
+risk_lists <- list(
+  sociostructural_risks = sociostructural_risks,
+  injecting_risks = injecting_risks,
+  sexual_risks = sexual_risks
+)
+
+# Run logistic regression for each risk variable predicting prep_init, adjusted for sdem_reside and rand_arm
+arch_regression_results <- lapply(risk_lists, function(var_list) {
+  lapply(var_list, function(var) {
+    # Only run if variable has at least 2 levels
+    if(length(unique(m2hepprep_prep_combined[[var]][!is.na(m2hepprep_prep_combined[[var]])])) < 2) return(NULL)
+    formula <- as.formula(paste("prep_init ~", var, "+ rand_arm + sdem_reside"))
+    model <- glm(formula, data = m2hepprep_prep_combined, family = binomial(link = "logit"))
+    results <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
+    results$Variable <- var
+    results
+  })
 })
 
 # Combine results and format
-arch_regression_results_df <- bind_rows(arch_regression_results) %>%
+arch_regression_results_df <- bind_rows(unlist(arch_regression_results, recursive = FALSE)) %>%
   filter(
     term != "(Intercept)",
     !grepl("^sdem_reside", term),
@@ -210,6 +224,111 @@ arch_regression_results_df <- bind_rows(arch_regression_results) %>%
 
 # Save to CSV (only variables, not rand_arm or sdem_reside)
 write.csv(arch_regression_results_df, "data/arch_vars_prepinit_logistic_regression.csv", row.names = FALSE)
+
+# Run logistic regression for each risk variable predicting prep_init, with interaction between exposure and city, adjusted for rand_arm
+arch_regression_results_interaction <- lapply(risk_lists, function(var_list) {
+  lapply(var_list, function(var) {
+    # Only run if variable has at least 2 levels
+    if(length(unique(m2hepprep_prep_combined[[var]][!is.na(m2hepprep_prep_combined[[var]])])) < 2) return(NULL)
+    formula <- as.formula(paste("prep_init ~", var, "* sdem_reside + rand_arm"))
+    model <- glm(formula, data = m2hepprep_prep_combined, family = binomial(link = "logit"))
+    results <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
+    results$Variable <- var
+    results
+  })
+})
+
+# Combine results and format
+arch_regression_results_df_interaction <- bind_rows(unlist(arch_regression_results_interaction, recursive = FALSE)) %>%
+  filter(
+    term != "(Intercept)",
+    !grepl("^rand_arm", term)
+  ) %>%
+  mutate(
+    OR_CI = sprintf("%.2f (%.2f-%.2f)", estimate, conf.low, conf.high),
+    p_formatted = ifelse(p.value < 0.001, "<0.001", sprintf("%.3f", p.value))
+  ) %>%
+  select(Variable, term, OR_CI, p_formatted) %>%
+  rename(Level = term, `OR (95% CI)` = OR_CI, `P-value` = p_formatted)
+
+# Save to CSV (includes interaction terms with city)
+write.csv(arch_regression_results_df_interaction, "data/table_vars_prepinit_logistic_regression_cityinteraction.csv", row.names = FALSE)
+
+## interaction term by city
+
+# Load regression results
+results <- read.csv("data/table_vars_prepinit_logistic_regression_cityinteraction.csv")
+
+# Helper to safely pull one value (returns NA if missing)
+safe_extract <- function(df, col) {
+  if (is.null(df) || nrow(df) == 0 || !(col %in% names(df)) || length(df[[col]]) == 0) {
+    return(NA_character_)
+  } else {
+    return(as.character(df[[col]][1]))
+  }
+}
+
+# Parse OR and CI from string "OR (LCL-UCL)"
+parse_or_ci <- function(or_ci_string) {
+  if (is.na(or_ci_string) || nchar(or_ci_string) == 0) return(c(NA, NA, NA))
+  m <- regmatches(or_ci_string, regexec("([0-9\\.]+) \\(([0-9\\.]+)-([0-9\\.]+)\\)", or_ci_string))
+  if (length(m[[1]]) != 4) return(c(NA, NA, NA))
+  as.numeric(m[[1]][2:4])
+}
+
+# Combine all risk lists into one vector
+all_vars <- unlist(risk_lists)
+
+# Build formatted table for all levels of each variable in all risk lists
+table_out <- lapply(all_vars, function(var) {
+  levels_var <- unique(results$Level[results$Variable == var])
+  # Drop city/interaction terms
+  levels_var <- levels_var[!grepl("sdem_reside", levels_var)]
+  # If no levels, create one NA level to force a row
+  if (length(levels_var) == 0) levels_var <- NA_character_
+  do.call(rbind, lapply(levels_var, function(lvl) {
+    montreal    <- results[results$Variable == var & results$Level == lvl, ]
+    interaction <- results[results$Variable == var & 
+                           results$Level == paste0(lvl, ":sdem_resideGreater Montreal area"), ]
+    # Parse ORs
+    m_vals <- parse_or_ci(safe_extract(montreal, "OR..95..CI."))
+    i_vals <- parse_or_ci(safe_extract(interaction, "OR..95..CI."))
+    # Compute Miami OR & CI
+    miami_ci <- NA_character_
+    if (!all(is.na(m_vals)) & !all(is.na(i_vals))) {
+      log_or1 <- log(m_vals[1]); log_or2 <- log(i_vals[1])
+      se1 <- (log(m_vals[3]) - log(m_vals[2])) / (2*1.96)
+      se2 <- (log(i_vals[3]) - log(i_vals[2])) / (2*1.96)
+      log_or_miami <- log_or1 + log_or2
+      se_miami <- sqrt(se1^2 + se2^2)
+      or_miami <- exp(log_or_miami)
+      lcl <- exp(log_or_miami - 1.96*se_miami)
+      ucl <- exp(log_or_miami + 1.96*se_miami)
+      miami_ci <- sprintf("%.2f (%.2f-%.2f)", or_miami, lcl, ucl)
+    }
+    data.frame(
+      Characteristic     = var,
+      Level              = ifelse(is.na(lvl), NA_character_, lvl),
+      Montreal_OR_CI     = safe_extract(montreal, "OR..95..CI."),
+      Miami_OR_CI        = miami_ci,
+      Interaction_OR_CI  = safe_extract(interaction, "OR..95..CI."),
+      stringsAsFactors   = FALSE
+    )
+  }))
+})
+
+# Combine into one data frame
+table_out_df <- do.call(rbind, table_out)
+
+# Save CSV/Excel
+write_xlsx(table_out_df, path = "data/prepinit_cityinteraction_formatted_table.xlsx")
+
+
+
+
+
+
+
 
 # Run logistic regression for each arch_var predicting prep_init, adjusted for sdem_reside and rand_arm, using _sensitivity dataframe
 arch_regression_results <- lapply(arch_vars, function(var) {
@@ -454,8 +573,6 @@ arch_prepinit_summary_strat_wide_sens <- arch_prepinit_summary_strat_sens %>%
   )
 
 write.csv(arch_prepinit_summary_strat_wide_sens, "data/arch_prepinit_summary_stratified_sens.csv", row.names = FALSE)
-
-## Sensitivity analysis: associations with prep initiation stratified by intervention arm
 
 ## Sensitivity analysis: associations with prep initiation stratified by intervention arm
 
