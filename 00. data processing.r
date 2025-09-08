@@ -38,92 +38,11 @@ m2hepprep_baseline <- m2hepprep_raw %>%
   filter(redcap_event_name == "Screening (visit 1)") %>%
   select(record_id, id_paper, rand_arm, rand_date, is_eligible, sdem_visit, sdem_reside, sdem_lang_mia_2, sdem_age, sdem_oat, sdem_sev, sdem_sex, sdem_gender, sdem_prg_c, vcp_inject_6mo, sdem_hiv_etst, sdem_hiv_rtst_r, sdem_prp_cu, sdem_hcv, sdem_wil_fol, sdem_elig, sdem_hcv_etst, sdem_hcv_rtst, sdem_hcv_rtst_r, sdem_hiv_rtst, scr_c_hcv_res_retired, insti, sdem_slep6m, sdem_live6m_hls, sdem_live6m_shl1, sdem_live6m_trs, sdem_live6m_htl, sdem_live6m_hiv, sdem_live6m_sut, sdem_live6m_shl2, sdem_live6m_shl3, sdem_live6m_shl4, sdem_live6m_shl5, sdem_idu, sdem_idu6m___0, sdem_idu6m___1, sdem_idu6m___2, sdem_idu6m___3, sdem_idu6m___4, sdem_idu6m___5, sdem_idu6m___6, sdem_idu6m___7, sdem_dis_hcv, sdem_dis_hiv, sdem_dis_sex, sdem_dis_gay, sdem_dis_sub, sdem_dis_race, vir_dbs, vir_rna2)
 
-# 3 month visit
-m2hepprep_3m <- m2hepprep_raw %>%
-  filter(redcap_event_name == "3 months") %>%
-  select(record_id, adh2_visitdate, prep_prescribe, adh_prep, adh_noprep_reason___1, adh_noprep_reason___2, adh_noprep_reason___3, adh_noprep_reason___4, adh_noprep_reason___5, adh_noprep_reason___6, adh_noprep_reason___7, adh_noprep_reason___8, adh_noprep_reason___9, adh_noprep_reason___10, adh_noprep_reason___11, adh_noprep_reason___12, adh_noprep_reason___13, adh_noprep_reason___14, stop_prep, prep_last4week, prep_now)
-
-# 6 month visit
-m2hepprep_6m <- m2hepprep_raw %>%
-  filter(redcap_event_name == "6 months") %>%
-  select(record_id, adh2_visitdate, prep_prescribe, adh_prep, adh_noprep_reason___1, adh_noprep_reason___2, adh_noprep_reason___3, adh_noprep_reason___4, adh_noprep_reason___5, adh_noprep_reason___6, adh_noprep_reason___7, adh_noprep_reason___8, adh_noprep_reason___9, adh_noprep_reason___10, adh_noprep_reason___11, adh_noprep_reason___12, adh_noprep_reason___13, adh_noprep_reason___14, stop_prep, prep_last4week, prep_now)
-
-# 9 month visit
-m2hepprep_9m <- m2hepprep_raw %>%
-  filter(redcap_event_name == "9 months") %>%
-    select(record_id, adh2_visitdate, prep_prescribe, adh_prep, adh_noprep_reason___1, adh_noprep_reason___2, adh_noprep_reason___3, adh_noprep_reason___4, adh_noprep_reason___5, adh_noprep_reason___6, adh_noprep_reason___7, adh_noprep_reason___8, adh_noprep_reason___9, adh_noprep_reason___10, adh_noprep_reason___11, adh_noprep_reason___12, adh_noprep_reason___13, adh_noprep_reason___14, stop_prep, prep_last4week, prep_now)
-
-# 12 month visit
-m2hepprep_12m <- m2hepprep_raw %>%
-  filter(redcap_event_name == "12 months") %>%
-  select(record_id, adh2_visitdate, prep_prescribe, adh_prep, adh_noprep_reason___1, adh_noprep_reason___2, adh_noprep_reason___3, adh_noprep_reason___4, adh_noprep_reason___5, adh_noprep_reason___6, adh_noprep_reason___7, adh_noprep_reason___8, adh_noprep_reason___9, adh_noprep_reason___10, adh_noprep_reason___11, adh_noprep_reason___12, adh_noprep_reason___13, adh_noprep_reason___14, stop_prep, prep_last4week, prep_now)
-
-# 15 month visit
-m2hepprep_12m <- m2hepprep_raw %>%
-  filter(redcap_event_name == "15 months") %>%
-  select(record_id, adh2_visitdate, prep_prescribe, adh_prep, adh_noprep_reason___1, adh_noprep_reason___2, adh_noprep_reason___3, adh_noprep_reason___4, adh_noprep_reason___5, adh_noprep_reason___6, adh_noprep_reason___7, adh_noprep_reason___8, adh_noprep_reason___9, adh_noprep_reason___10, adh_noprep_reason___11, adh_noprep_reason___12, adh_noprep_reason___13, adh_noprep_reason___14, stop_prep, prep_last4week, prep_now)
-
 # prep initiation
 m2hepprep_tx_clean <- m2hepprep_tx_raw %>%
   select(record_id, rand_to_disp, within_6_months) %>%
   mutate(prep_init = factor(1, levels = c(0, 1), labels = c("No", "Yes"))) %>%
   filter(!is.na(record_id) & record_id != "")
-
-# Create a list of visit names and their corresponding suffixes
-visits <- list(
-  "3 months" = "3m",
-  "6 months" = "6m", 
-  "9 months" = "9m",
-  "12 months" = "12m",
-  "15 months" = "15m"
-)
-
-# Variables to select (excluding redcap_event_name and record_id)
-visit_vars <- c("adh2_visitdate", "prep_prescribe", "adh_prep",
-                paste0("adh_noprep_reason___", 1:14),
-                "stop_prep", "prep_last4week", "prep_now")
-
-# Create dataframes in a loop
-visit_data <- list()
-
-for(visit_name in names(visits)) {
-  suffix <- visits[[visit_name]]
-  
-  # Filter and select data
-  df <- m2hepprep_raw %>%
-    filter(redcap_event_name == visit_name) %>%
-    select(redcap_event_name, record_id, all_of(visit_vars))
-  
-  # Rename columns (except redcap_event_name and record_id)
-  new_names <- paste0(visit_vars, "_", suffix)
-  names(df)[3:length(names(df))] <- new_names
-  
-  # Store in list
-  visit_data[[paste0("m2hepprep_", suffix)]] <- df
-}
-
-# Extract individual dataframes if needed
-m2hepprep_3m <- visit_data$m2hepprep_3m
-m2hepprep_6m <- visit_data$m2hepprep_6m
-m2hepprep_9m <- visit_data$m2hepprep_9m
-m2hepprep_12m <- visit_data$m2hepprep_12m
-m2hepprep_15m <- visit_data$m2hepprep_15m
-
-# Combine all dataframes
-m2hepprep_combined <- m2hepprep_baseline %>%
-  left_join(m2hepprep_3m, by = "record_id") %>%
-  left_join(m2hepprep_6m, by = "record_id") %>%
-  left_join(m2hepprep_9m, by = "record_id") %>%
-  left_join(m2hepprep_12m, by = "record_id") %>%
-  left_join(m2hepprep_15m, by = "record_id") %>%
-  left_join(m2hepprep_tx_clean, by = "record_id")
-
-# Create prep_prescribe_any variable
-m2hepprep_combined <- m2hepprep_combined %>%
-  mutate(prep_prescribe_any = pmax(prep_prescribe_3m, prep_prescribe_6m, prep_prescribe_9m, prep_prescribe_12m, na.rm = TRUE))
-
-# save data
-write.csv(m2hepprep_combined, "data/m2hepprep_combined.csv", row.names = FALSE)
 
 # combined baseline and prep dataframes
 m2hepprep_prep_combined <- m2hepprep_baseline %>%
@@ -141,203 +60,290 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
   mutate(prep_init = ifelse(is.na(prep_init), 0, prep_init))
 
+m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
+  mutate(prep_init = factor(prep_init, levels = c(0,2), labels = c("No", "Yes")),
+         prep_init_num = ifelse(prep_init == "Yes", 1, 0))
+
 # socio-structural risks
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
   mutate(
-    sdem_sex_binary = case_when(
-      sdem_sex == "Male" ~ "Male",
-      sdem_sex == "Female" ~ "Female",
-      TRUE ~ NA_character_
+    sdem_sex_binary = factor(
+      case_when(
+        sdem_sex == "Male" ~ "Male",
+        sdem_sex == "Female" ~ "Female",
+        TRUE ~ NA_character_
+      ),
+      levels = c("Male", "Female")
     ),
-    sdem_age_binary = case_when(
-      as.numeric(sdem_age) < 40 ~ "Under 40",
-      as.numeric(sdem_age) >= 40 ~ "40+",
-      TRUE ~ NA_character_
+    sdem_age_binary = factor(
+      case_when(
+        as.numeric(sdem_age) < 40 ~ "Under 40",
+        as.numeric(sdem_age) >= 40 ~ "40+",
+        TRUE ~ NA_character_
+      ),
+      levels = c("Under 40", "40+")
     ),
-    sdem_slep6m_binary = case_when(
-      sdem_slep6m %in% c("Homeless", "In a shelter") ~ "Homeless",
-      sdem_slep6m %in% c("Drug treatment facility", "HIV/AIDS housing/group home", "Other", 
-                         "Other residential facility or institution", "Owner", 
-                         "Permanent single-room occupancy", "Rent", "Staying with friends/family", 
-                         "Transitional") ~ "Not homeless",
-      TRUE ~ NA_character_
+    sdem_slep6m_binary = factor(
+      case_when(
+        sdem_slep6m %in% c("Homeless", "In a shelter") ~ "Homeless",
+        sdem_slep6m %in% c("Drug treatment facility", "HIV/AIDS housing/group home", "Other", 
+                           "Other residential facility or institution", "Owner", 
+                           "Permanent single-room occupancy", "Rent", "Staying with friends/family", 
+                           "Transitional") ~ "Not homeless",
+        TRUE ~ NA_character_
+      ),
+      levels = c("Homeless", "Not homeless")
     ),
-    healthcare_disc_bin = case_when(
-      (sdem_dis_hcv == "Yes" | sdem_dis_hiv == "Yes" | sdem_dis_sex == "Yes" | 
-       sdem_dis_gay == "Yes" | sdem_dis_sub == "Yes" | sdem_dis_race == "Yes") ~ "Yes",
-      (sdem_dis_hcv == "No" & sdem_dis_hiv == "No" & sdem_dis_sex == "No" & 
-       sdem_dis_gay == "No" & sdem_dis_sub == "No" & sdem_dis_race == "No") ~ "No",
-      TRUE ~ NA_character_
+    healthcare_disc_bin = factor(
+      case_when(
+        (sdem_dis_hcv == "Yes" | sdem_dis_hiv == "Yes" | sdem_dis_sex == "Yes" | 
+         sdem_dis_gay == "Yes" | sdem_dis_sub == "Yes" | sdem_dis_race == "Yes") ~ "Yes",
+        (sdem_dis_hcv == "No" & sdem_dis_hiv == "No" & sdem_dis_sex == "No" & 
+         sdem_dis_gay == "No" & sdem_dis_sub == "No" & sdem_dis_race == "No") ~ "No",
+        TRUE ~ NA_character_
+      ),
+      levels = c("No", "Yes")
     ),
-    sdem_dis_sub_bin = case_when(
-      sdem_dis_sub == "Yes" ~ "Yes",
-      sdem_dis_sub == "No" ~ "No",
-      TRUE ~ NA_character_
+    sdem_dis_sub_bin = factor(
+      case_when(
+        sdem_dis_sub == "Yes" ~ "Yes",
+        sdem_dis_sub == "No" ~ "No",
+        TRUE ~ NA_character_
+      ),
+      levels = c("No", "Yes")
     ),
-    incarc_6m_bin = case_when(
-      as.numeric(cla_2) == 0 ~ "No",
-      as.numeric(cla_2) > 0 ~ "Yes",
-      TRUE ~ NA_character_
+    incarc_6m_bin = factor(
+      case_when(
+        as.numeric(cla_2) == 0 ~ "No",
+        as.numeric(cla_2) > 0 ~ "Yes",
+        TRUE ~ NA_character_
+      ),
+      levels = c("No", "Yes")
     ),
-    aiv_kid_evr_pa = case_when(
-      aiv_kid_evr_pa == "" ~ NA_character_,
-      TRUE ~ aiv_kid_evr_pa
+    aiv_kid_evr_pa = factor(
+      case_when(
+        aiv_kid_evr_pa == "" ~ NA_character_,
+        TRUE ~ aiv_kid_evr_pa
+      )
     ),
-    aiv_adt_evr_pa = case_when(
-      aiv_adt_evr_pa == "" ~ NA_character_,
-      TRUE ~ aiv_adt_evr_pa
+    aiv_adt_evr_pa = factor(
+      case_when(
+        aiv_adt_evr_pa == "" ~ NA_character_,
+        TRUE ~ aiv_adt_evr_pa
+      )
     ),
-    aiv_6m_pa = case_when(
-      aiv_adt_evr_pa == "No" ~ "No",
-      aiv_6m_pa == "" ~ NA_character_,
-      TRUE ~ aiv_6m_pa
+    aiv_6m_pa = factor(
+      case_when(
+        aiv_adt_evr_pa == "No" ~ "No",
+        aiv_6m_pa == "" ~ NA_character_,
+        TRUE ~ aiv_6m_pa
+      ),
+      levels = c("No", "Yes")
     ),
-    aiv_kid_evr_sex = case_when(
-      aiv_kid_evr_sex == "" ~ NA_character_,
-      TRUE ~ aiv_kid_evr_sex
+    aiv_kid_evr_sex = factor(
+      case_when(
+        aiv_kid_evr_sex == "" ~ NA_character_,
+        TRUE ~ aiv_kid_evr_sex
+      )
     ),
-    aiv_adt_evr_sex = case_when(
-      aiv_adt_evr_sex == "" ~ NA_character_,
-      TRUE ~ aiv_adt_evr_sex
+    sexual_abuse_ever = factor(
+      case_when(
+        aiv_adt_evr_sex == "" ~ NA_character_,
+        aiv_adt_evr_sex == "Refuse to answer" ~ NA_character_,
+        TRUE ~ aiv_adt_evr_sex
+      ),
+      levels = c("No", "Yes")
     ),
-    aiv_6m_sex = case_when(
-      aiv_adt_evr_sex == "No" ~ "No",
-      aiv_6m_sex == "" ~ NA_character_,
-      TRUE ~ aiv_6m_sex
+    sexual_abuse_6m = factor(
+      case_when(
+        aiv_adt_evr_sex == "No" ~ "No",
+        aiv_6m_sex == "" ~ NA_character_,
+        aiv_6m_sex == "Refuse to answer" ~ NA_character_,
+        TRUE ~ aiv_6m_sex
+      ),
+      levels = c("No", "Yes")
     ),
-    oat_ever = case_when(
-      nms_opd == "" ~ NA_character_,
-      TRUE ~ nms_opd
+    oat_ever = factor(
+      case_when(
+        nms_opd == "" ~ NA_character_,
+        TRUE ~ nms_opd
+      ),
+      levels = c("No", "Yes")
     ),
-    bupe_current = case_when(
-      nms_opd_med___0 == "Buprenorphine (oral)" ~ 1,
-      TRUE ~ 0
+    bupe_current = factor(
+      case_when(
+        nms_opd_med___0 == "Buprenorphine (oral)" ~ "Yes",
+        TRUE ~ "No"
+      ),
+      levels = c("No", "Yes")
     ),
-    lab_bupe_current = case_when(
-      nms_opd_med___1 == "Buprenorphine (implant / inj.)" ~ 1,
-      TRUE ~ 0
+    lab_bupe_current = factor(
+      case_when(
+        nms_opd_med___1 == "Buprenorphine (implant / inj.)" ~ "Yes",
+        TRUE ~ "No"
+      ),
+      levels = c("No", "Yes")
     ),
-    methadone_current = case_when(
-      nms_opd_med___4 == "Methadone" ~ 1,
-      TRUE ~ 0
+    methadone_current = factor(
+      case_when(
+        nms_opd_med___4 == "Methadone" ~ "Yes",
+        TRUE ~ "No"
+      ),
+      levels = c("No", "Yes")
     ),
-    naltrexone_current = case_when(
-      nms_opd_med___2 == "Naltrexone (oral)" ~ 1,
-      TRUE ~ 0
+    naltrexone_current = factor(
+      case_when(
+        nms_opd_med___2 == "Naltrexone (oral)" ~ "Yes",
+        TRUE ~ "No"
+      ),
+      levels = c("No", "Yes")
     ),
-    other_oat_current = case_when(
-      nms_opd_med___6 == "Other" ~ 1,
-      TRUE ~ 0
+    other_oat_current = factor(
+      case_when(
+        nms_opd_med___6 == "Other" | nms_opd_med___2 == "Naltrexone (oral)" ~ "Yes",
+        TRUE ~ "No"
+      ),
+      levels = c("No", "Yes")
     ),
-    oat_current = case_when(
-      bupe_current == 1 | methadone_current == 1 | lab_bupe_current == 1 | other_oat_current == 1 ~ 1,
-      TRUE ~ 0
+    oat_current = factor(
+      case_when(
+        bupe_current == "Yes" | methadone_current == "Yes" | lab_bupe_current == "Yes" | other_oat_current == "Yes" ~ "Yes",
+        TRUE ~ "No"
+      ),
+      levels = c("No", "Yes")
     ),
-    mental_health_prescribe_ever = case_when(
-      nms_mnt == "" ~ NA_character_,
-      TRUE ~ nms_mnt
+    mental_health_prescribe_ever = factor(
+      case_when(
+        nms_mnt == "" ~ NA_character_,
+        TRUE ~ nms_mnt
+      )
     ),
-    therapy_ever = case_when(
-      nms_trp == "" ~ NA_character_,
-      TRUE ~ nms_trp
+    therapy_ever = factor(
+      case_when(
+        nms_trp == "" ~ NA_character_,
+        TRUE ~ nms_trp
+      )
     ),
-    msm_ever = case_when(
-      dem_gender == "Man" & (dem_gender_id == "Homosexual" | dem_gender_id == "Bisexual") ~ 1,
-      dem_gender == "Man" & (dem_gender_id == "Heterosexual" | dem_gender_id == "Other") ~ 0,
-      TRUE ~ NA_real_
+    msm_ever = factor(
+      case_when(
+        dem_gender == "Man" & (dem_gender_id == "Homosexual" | dem_gender_id == "Bisexual") ~ "Yes",
+        dem_gender == "Man" & (dem_gender_id == "Heterosexual" | dem_gender_id == "Other") ~ "No",
+        TRUE ~ NA_character_
+      ),
+      levels = c("No", "Yes")
     ),
-    education_status_4cat = case_when(
-      dem_edu %in% c("Middle school (Jr high school) or less", "Some high school, no diploma") ~ "Middle school or less",
-      dem_edu %in% c("High school diploma/GED or equivalent", "Junior (2-year) college / CEGEP", "Technical/trade/vocational school", "Some college (4-year college or university)") ~ "High school diploma",
-      dem_edu %in% c("College graduate (4-year college or university)", "Graduate or professional school") ~ "College graduate or higher",
-      dem_edu == "Choose not to answer" ~ "No answer",
-      dem_edu == "" ~ NA_character_,
-      TRUE ~ NA_character_
+    education_status_4cat = factor(
+      case_when(
+        dem_edu %in% c("Middle school (Jr high school) or less", "Some high school, no diploma") ~ "Middle school or less",
+        dem_edu %in% c("High school diploma/GED or equivalent", "Junior (2-year) college / CEGEP", "Technical/trade/vocational school", "Some college (4-year college or university)") ~ "High school diploma",
+        dem_edu %in% c("College graduate (4-year college or university)", "Graduate or professional school") ~ "College graduate or higher",
+        dem_edu == "Choose not to answer" ~ "No answer",
+        dem_edu == "" ~ NA_character_,
+        TRUE ~ NA_character_
+      ),
+      levels = c("Middle school or less", "High school diploma", "College graduate or higher", "No answer")
     ),
-    income_con = case_when(
-      !is.na(nms_inc_cad) ~ nms_inc_cad * 0.73,
-      TRUE ~ nms_inc_usd
+    employment_current = factor(
+      case_when(
+        nms_emp == "" ~ NA_character_,
+        TRUE ~ nms_emp
+      )
     ),
-    income_4cat = case_when(
-      income_con == 0 ~ "No income",
-      income_con > 0 & income_con < 500 ~ "<500",
-      income_con >= 500 & income_con <= 1500 ~ "500-1500",
-      income_con > 1500 ~ ">1500",
-      TRUE ~ NA_character_
+    healthcare_coverage = factor(
+      case_when(
+        dem_hltins == "" ~ NA_character_,
+        dem_hltins == "Don't know" ~ NA_character_,
+        TRUE ~ dem_hltins
+      )
     ),
-    employment_current = case_when(
-      nms_emp == "" ~ NA_character_,
-      TRUE ~ nms_emp
+    hr_use = factor(
+      case_when(
+        sdem_sev == "" ~ NA_character_,
+        TRUE ~ sdem_sev
+      )
     ),
-    healthcare_coverage = case_when(
-      dem_hltins == "" ~ NA_character_,
-      TRUE ~ dem_hltins
-    ),
-    hr_use = case_when(
-      sdem_sev == "" ~ NA_character_,
-      TRUE ~ sdem_sev
-    ),
-    nsp_use = case_when(
-      sdem_sev == "Syringe access program (SAP)" | sdem_sev == "Both" ~ 1,
-      sdem_sev == "None" | sdem_sev == "Opioid agonist therapy (OAT) clinic" ~ 0,
-      TRUE ~ NA_real_
+    nsp_use = factor(
+      case_when(
+        sdem_sev == "Syringe access program (SAP)" | sdem_sev == "Both" ~ "Yes",
+        sdem_sev == "None" | sdem_sev == "Opioid agonist therapy (OAT) clinic" ~ "No",
+        TRUE ~ NA_character_
+      ),
+      levels = c("No", "Yes")
     )
   )
 
 # injecting risks
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
   mutate(
-    syringe_share_6m_bin = case_when(
-      sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before" |
-      sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done" ~ "Yes",
-      TRUE ~ "No"
+    syringe_share_6m_bin = factor(
+      case_when(
+        sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before" |
+        sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done" ~ "Yes",
+        TRUE ~ "No"
+      ),
+      levels = c("No", "Yes")
     ),
-    syringe_loan_bin = case_when(
-      (sdem_idu6m___4 == "Let someone else use a needle after you used it" | 
-       sdem_idu6m___5 == "Let someone else use the rinse water, etc" | 
-       sdem_idu6m___6 == "Allow someone else to inject with drugs") ~ "Yes",
-      sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before" |
-      sdem_idu6m___0 == "Reuse a needle without cleaning it with bleach or boiling water first" |
-      sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton" | 
-      sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done" | 
-      sdem_idu6m___7 == "None of the above / NA" ~ "No",
-      TRUE ~ NA_character_
+    syringe_loan_bin = factor(
+      case_when(
+        (sdem_idu6m___4 == "Let someone else use a needle after you used it" | 
+         sdem_idu6m___5 == "Let someone else use the rinse water, etc" | 
+         sdem_idu6m___6 == "Allow someone else to inject with drugs") ~ "Yes",
+        sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before" |
+        sdem_idu6m___0 == "Reuse a needle without cleaning it with bleach or boiling water first" |
+        sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton" | 
+        sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done" | 
+        sdem_idu6m___7 == "None of the above / NA" ~ "No",
+        TRUE ~ NA_character_
+      ),
+      levels = c("No", "Yes")
     ),
-    syringe_other_bin = case_when(
-      (sdem_idu6m___0 == "Reuse a needle without cleaning it with bleach or boiling water first" |
-       sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton" | 
-       sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done") ~ "Yes",
-      sdem_idu6m___4 == "Let someone else use a needle after you used it" | 
-      sdem_idu6m___5 == "Let someone else use the rinse water, etc" | 
-      sdem_idu6m___6 == "Allow someone else to inject with drugs" |
-      sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before" |
-      sdem_idu6m___7 == "None of the above / NA" ~ "No",
-      TRUE ~ NA_character_
-    ), 
-    syringe_share_bin_ever = case_when(
-      sdu_srg == "" ~ NA_character_,
-      TRUE ~ sdu_srg
+    syringe_other_bin = factor(
+      case_when(
+        (sdem_idu6m___0 == "Reuse a needle without cleaning it with bleach or boiling water first" |
+         sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton" | 
+         sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done") ~ "Yes",
+        sdem_idu6m___4 == "Let someone else use a needle after you used it" | 
+        sdem_idu6m___5 == "Let someone else use the rinse water, etc" | 
+        sdem_idu6m___6 == "Allow someone else to inject with drugs" |
+        sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before" |
+        sdem_idu6m___7 == "None of the above / NA" ~ "No",
+        TRUE ~ NA_character_
+      ),
+      levels = c("No", "Yes")
     ),
-    overdose_6m = case_when(
-      odu_6m == "" ~ NA_character_,
-      TRUE ~ odu_6m
-    ),    
+    syringe_share_bin_ever = factor(
+      case_when(
+        sdu_srg == "" ~ NA_character_,
+        TRUE ~ sdu_srg
+      ),
+      levels = c("No", "Yes")
+    ),
+    overdose_6m = factor(
+      case_when(
+        odu_6m == "" ~ NA_character_,
+        TRUE ~ odu_6m
+      ),
+      levels = c("No", "Yes")
+    ),
     days_used_1m = case_when(
       sub_frq1m == "" ~ NA_real_,
       TRUE ~ as.numeric(sub_frq1m)
-    ),    
-    days_used_1m_3cat = case_when(
-      days_used_1m > 24 ~ "25-30", 
-      days_used_1m < 25 & days_used_1m > 14 ~ "15-24",
-      days_used_1m < 15 ~ "0-14",
-      TRUE ~ NA_character_
     ),
-    inject_stims_6m = ifelse(sub_6m3 == "Yes" | sub_6m4 == "Yes" | sub_6m8 == "Yes" | sub_6m13 == "Yes", 1, 0),
-    inject_opioids_6m = ifelse(sub_6m1 == "Yes" | sub_6m8 == "Yes" | sub_6m9 == "Yes" | sub_6m10 == "Yes" | sub_6m11 == "Yes" | sub_6m12 == "Yes" | sub_6m22 == "Yes", 1, 0),
-    inject_heroin_6m = ifelse(sub_6m1 == "Yes", 1, 0),
-    inject_cocaine_6m = ifelse(sub_6m3 == "Yes" | sub_6m4 == "Yes", 1, 0),
-    inject_fent_6m = ifelse(sub_6m27 == "Yes", 1, 0),
-    inject_meth_6m = ifelse(sub_6m13 == "Yes", 1, 0)
+    days_used_1m_3cat = factor(
+      case_when(
+        days_used_1m > 24 ~ "25-30", 
+        days_used_1m < 25 & days_used_1m > 14 ~ "15-24",
+        days_used_1m < 15 ~ "0-14",
+        TRUE ~ NA_character_
+      ),
+      levels = c("0-14", "15-24", "25-30")
+    ),
+    inject_stims_6m = factor(ifelse(sub_6m3 == "Yes" | sub_6m4 == "Yes" | sub_6m8 == "Yes" | sub_6m13 == "Yes", "Yes", "No"), levels = c("No", "Yes")),
+    inject_opioids_6m = factor(ifelse(sub_6m1 == "Yes" | sub_6m8 == "Yes" | sub_6m9 == "Yes" | sub_6m10 == "Yes" | sub_6m11 == "Yes" | sub_6m12 == "Yes" | sub_6m22 == "Yes", "Yes", "No"), levels = c("No", "Yes")),
+    inject_heroin_6m = factor(ifelse(sub_6m1 == "Yes", "Yes", "No"), levels = c("No", "Yes")),
+    inject_cocaine_6m = factor(ifelse(sub_6m3 == "Yes" | sub_6m4 == "Yes", "Yes", "No"), levels = c("No", "Yes")),
+    inject_fent_6m = factor(ifelse(sub_6m27 == "Yes", "Yes", "No"), levels = c("No", "Yes")),
+    inject_meth_6m = factor(ifelse(sub_6m13 == "Yes", "Yes", "No"), levels = c("No", "Yes"))
   )
 
 # sexual risks
@@ -354,15 +360,15 @@ m2hepprep_prep_combined[cols_to_na] <- lapply(
 
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
   mutate(
-      sexwork_3m = factor(
-    case_when(
-      srb_3m_prst == "Yes" ~ "Yes",
-      srb_3m_prst == "No" ~ "No",
-      srb_3m != "Yes" ~ "No",
-      TRUE ~ NA_character_
+    sexwork_3m = factor(
+      case_when(
+        srb_3m_prst == "Yes" ~ "Yes",
+        srb_3m_prst == "No" ~ "No",
+        srb_3m != "Yes" ~ "No",
+        TRUE ~ NA_character_
+      ),
+      levels = c("No", "Yes")
     ),
-    levels = c("No", "Yes")
-  ),
     bought_sex_3m = factor(
       case_when(
         srb_prst04 == "Yes" ~ "Yes",
@@ -382,16 +388,22 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       ),
       levels = c("0", "1", "2+")
     ),
-    sex_with_hivpos_female_1m = case_when(
-      sdem_sex == "Male" & srb_1m_f_hiv %in% c("No", "Yes", "Don't know") ~ as.character(factor(srb_1m_f_hiv, levels = c("No", "Yes", "Don't know"))),
-      sdem_sex == "Male" & srb_3m != "Yes" ~ "0",
-      TRUE ~ NA_character_
+    sex_with_hivpos_female_1m = factor(
+      case_when(
+        sdem_sex == "Male" & srb_1m_f_hiv %in% c("No", "Yes", "Don't know") ~ srb_1m_f_hiv,
+        sdem_sex == "Male" & srb_3m != "Yes" ~ "0",
+        TRUE ~ NA_character_
+      ),
+      levels = c("No", "Yes", "Don't know", "0")
     ),
-    condom_use_hivpos_female_1m = case_when(
-      sdem_sex == "Male" & (is.na(srb_3m) | srb_3m == "No") ~ 0,
-      sdem_sex == "Male" ~ as.numeric(factor(srb_1m_fc_hiv, levels = c("Never", "Rarely", "Some of the time", "Very often", "Always"))),
-      sdem_sex == "Male" & srb_3m != "Yes" ~ 0,
-      TRUE ~ NA_real_
+    condom_use_hivpos_female_1m = factor(
+      case_when(
+        sdem_sex == "Male" & (is.na(srb_3m) | srb_3m == "No") ~ "0",
+        sdem_sex == "Male" ~ as.character(srb_1m_fc_hiv),
+        sdem_sex == "Male" & srb_3m != "Yes" ~ "0",
+        TRUE ~ NA_character_
+      ),
+      levels = c("Never", "Rarely", "Some of the time", "Very often", "Always", "0")
     ),
     any_sex_3m = factor(srb_3m, levels = c("No", "Yes")),
     sex_on_cocaine_1m = factor(srb_1m_f_drg_cc, levels = c("Never", "Rarely", "Some of the time", "Very often", "Always")),
@@ -399,35 +411,29 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     sex_on_other_main_drug_1m = factor(srb_1m_f_drg_main, levels = c("Never", "Rarely", "Some of the time", "Very often", "Always")),
     sex_on_amphetamines_1m = factor(srb_1m_f_drg_aph, levels = c("Never", "Rarely", "Some of the time", "Very often", "Always")),
     sex_on_other_psychoactive_1m = factor(srb_1m_f_drg_psy, levels = c("Never", "Rarely", "Some of the time", "Very often", "Always")),
-    sex_on_any_drug_1m = case_when(
-      srb_1m_f_drg_cc %in% c("Rarely", "Some of the time", "Very often", "Always") |
-      srb_1m_f_drg_hro %in% c("Rarely", "Some of the time", "Very often", "Always") |
-      srb_1m_f_drg_main %in% c("Rarely", "Some of the time", "Very often", "Always") |
-      srb_1m_f_drg_aph %in% c("Rarely", "Some of the time", "Very often", "Always") |
-      srb_1m_f_drg_psy %in% c("Rarely", "Some of the time", "Very often", "Always") ~ "Yes",
-      rowSums(
-        cbind(
-          srb_1m_f_drg_cc %in% c("Never", NA),
-          srb_1m_f_drg_hro %in% c("Never", NA),
-          srb_1m_f_drg_main %in% c("Never", NA),
-          srb_1m_f_drg_aph %in% c("Never", NA),
-          srb_1m_f_drg_psy %in% c("Never", NA)
-        )
-      ) == 5 ~ "No",
-      srb_3m != "Yes" ~ "No",
-      TRUE ~ NA_character_
-    ),
-    condom_1m = replace_na(
+    sex_on_any_drug_1m = factor(
       case_when(
-        srb_1m_fc_pv %in% c("Never", "Rarely", "Some of the time") |
-        srb_1m_fc_pa %in% c("Never", "Rarely", "Some of the time") |
-        srb_1m_fc_npv %in% c("Never", "Rarely", "Some of the time") |
-        srb_1m_fc_npa %in% c("Never", "Rarely", "Some of the time") |
-        srb_1m_fc_cv %in% c("Never", "Rarely", "Some of the time") |
-        srb_1m_fc_ca %in% c("Never", "Rarely", "Some of the time") |
-        srb_1m_fc_mcv %in% c("Never", "Rarely", "Some of the time") |
-        srb_1m_fc_mco %in% c("Never", "Rarely", "Some of the time") |
-        srb_1m_fc_mca %in% c("Never", "Rarely", "Some of the time") ~ 1,
+        any_sex_3m != "Yes" ~ "No sex",
+        srb_1m_f_drg_cc %in% c("Rarely", "Some of the time", "Very often", "Always") |
+        srb_1m_f_drg_hro %in% c("Rarely", "Some of the time", "Very often", "Always") |
+        srb_1m_f_drg_main %in% c("Rarely", "Some of the time", "Very often", "Always") |
+        srb_1m_f_drg_aph %in% c("Rarely", "Some of the time", "Very often", "Always") |
+        srb_1m_f_drg_psy %in% c("Rarely", "Some of the time", "Very often", "Always") ~ "Sex on drugs",
+        rowSums(
+          cbind(
+            srb_1m_f_drg_cc %in% c("Never", NA),
+            srb_1m_f_drg_hro %in% c("Never", NA),
+            srb_1m_f_drg_main %in% c("Never", NA),
+            srb_1m_f_drg_aph %in% c("Never", NA),
+            srb_1m_f_drg_psy %in% c("Never", NA)
+          )
+        ) == 5 ~ "Sex without drugs",
+        TRUE ~ NA_character_
+      ),
+      levels = c("Sex without drugs", "Sex on drugs", "No sex")
+    ),
+    condom_1m = factor(
+      case_when(
         srb_1m_fc_pv %in% c("Very often", "Always") |
         srb_1m_fc_pa %in% c("Very often", "Always") |
         srb_1m_fc_npv %in% c("Very often", "Always") |
@@ -436,21 +442,30 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
         srb_1m_fc_ca %in% c("Very often", "Always") |
         srb_1m_fc_mcv %in% c("Very often", "Always") |
         srb_1m_fc_mco %in% c("Very often", "Always") |
-        srb_1m_fc_mca %in% c("Very often", "Always") ~ 2,
-        srb_3m != "Yes" ~ 0,
-        TRUE ~ NA_real_
+        srb_1m_fc_mca %in% c("Very often", "Always") ~ "Frequent condom use",
+        srb_1m_fc_pv %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_pa %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_npv %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_npa %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_cv %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_ca %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_mcv %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_mco %in% c("Never", "Rarely", "Some of the time") |
+        srb_1m_fc_mca %in% c("Never", "Rarely", "Some of the time") ~ "Infrequent condom use",
+        srb_3m != "Yes" ~ "No sex",
+        TRUE ~ NA_character_
       ),
-      0
+      levels = c("No condom use", "Condom use", "No sex")
     ),
-    sex_work_ever = case_when(
-      cla_16a == "No" ~ "No",
-      cla_16a == "Yes" ~ "Yes",
-      TRUE ~ NA_character_
+    sex_work_ever = factor(
+      case_when(
+        cla_16a == "No" ~ "No",
+        cla_16a == "Yes" ~ "Yes",
+        TRUE ~ NA_character_
+      ),
+      levels = c("No", "Yes")
     )
   )
-
-
-
 
 # List of sexual risk variables to tabulate
 sexual_risk_vars <- c(
@@ -478,134 +493,5 @@ table_sexual_risks <- CreateTableOne(
 # Print the table with all levels shown
 print(table_sexual_risks, showAllLevels = TRUE)
 
-# ARCH-IDU injection sub-score
-m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
-  mutate(
-    subscore_cocaine = ifelse(inject_cocaine_6m, 1, 0),
-    subscore_heroin = ifelse(inject_heroin_6m, 1, 0),
-    subscore_cooker = ifelse(
-      sdu_wrk_6m_frq %in% c("One time", "Less than 5 times", "6-10 times", "More than 10 times", "More than 100 times") |
-      sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton",
-      1, 0
-    ),
-    subscore_sharing = ifelse(syringe_share_6m_bin == "Yes", 1, 0),
-    subscore_gallery = ifelse(idu_6mplc2___3 == "Crack house/shooting gallery", 1, 0),
-    subscore_total = subscore_heroin + subscore_cocaine + subscore_cooker + subscore_sharing + subscore_gallery
-  )
-
-# ARCH-IDU injection sub-score sensitivity
-m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
-  mutate(
-    subscore_stims = ifelse(inject_stims_6m, 1, 0),
-    subscore_opioids = ifelse(inject_opioids_6m, 1, 0),
-    subscore_cooker = ifelse(
-      sdu_wrk_6m_frq %in% c("One time", "Less than 5 times", "6-10 times", "More than 10 times", "More than 100 times") |
-      sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton",
-      1, 0
-    ),
-    subscore_sharing = ifelse(syringe_share_6m_bin == "Yes", 1, 0),
-    subscore_gallery = ifelse(idu_6mplc2___3 == "Crack house/shooting gallery", 1, 0),
-    subscore_total = subscore_heroin + subscore_cocaine + subscore_cooker + subscore_sharing + subscore_gallery
-  )
-
-# tab five subscore variables
-tab_subscores <- CreateTableOne(
-  vars = c("subscore_heroin", "subscore_cocaine", "subscore_cooker", "subscore_sharing", "subscore_gallery"),
-  data = m2hepprep_prep_combined
-)
-print(tab_subscores, showAllLevels = TRUE)
-
-# ARCH-IDU risk score
-m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
-  mutate(
-    arch_age = case_when(
-      sdem_age > 49 ~ 0,
-      sdem_age > 39 & sdem_age < 50 ~ 7,
-      sdem_age > 29 & sdem_age < 40 ~ 24,
-      sdem_age < 30 ~ 38,
-    ),
-    arch_oat = case_when(
-      oat_current == 1 ~ 0,
-      oat_current == 0 ~ 31,
-      TRUE ~ NA_real_
-    ),
-    arch_injection = case_when(
-      subscore_total == 0 ~ 0,
-      subscore_total == 1 ~ 7,
-      subscore_total == 2 ~ 21,
-      subscore_total == 3 ~ 24,
-      subscore_total == 4 ~ 24,
-      subscore_total == 5 ~ 31,
-    ),
-    arch_total = arch_age + arch_oat + arch_injection,
-    arch_bin = factor(
-       case_when(
-        arch_total < 46 ~ 0,
-        arch_total > 45 ~ 1
-    ),
-    levels = c(0, 1),
-    labels = c("Low risk", "High risk")
-))
-
 # save data
-write.csv(m2hepprep_prep_combined, "data/m2hepprep_prep_combined.csv", row.names = FALSE)
-
-# ARCH-IDU injection sub-score sensitivity (using opioids and stimulants instead of heroin and cocaine)
-m2hepprep_prep_combined_sens <- m2hepprep_prep_combined %>%
-  mutate(
-    subscore_opioids_sens = ifelse(inject_opioids_6m, 1, 0),
-    subscore_stims_sens = ifelse(inject_stims_6m, 1, 0),
-    subscore_cooker_sens = ifelse(
-      sdu_wrk_6m_frq %in% c("One time", "Less than 5 times", "6-10 times", "More than 10 times", "More than 100 times") |
-      sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton",
-      1, 0
-    ),
-    subscore_sharing_sens = ifelse(syringe_share_6m_bin == "Yes", 1, 0),
-    subscore_gallery_sens = ifelse(idu_6mplc2___3 == "Crack house/shooting gallery", 1, 0),
-    subscore_total_sens = subscore_opioids_sens + subscore_stims_sens + subscore_cooker_sens + subscore_sharing_sens + subscore_gallery_sens,
-    arch_injection_sens = case_when(
-      subscore_total_sens == 0 ~ 0,
-      subscore_total_sens == 1 ~ 7,
-      subscore_total_sens == 2 ~ 21,
-      subscore_total_sens == 3 ~ 24,
-      subscore_total_sens == 4 ~ 24,
-      subscore_total_sens == 5 ~ 31,
-    ),
-    arch_total_sens = arch_age + arch_oat + arch_injection_sens,
-    arch_bin_sens = factor(
-      case_when(
-        arch_total_sens < 46 ~ 0,
-        arch_total_sens > 45 ~ 1
-      ),
-      levels = c(0, 1),
-      labels = c("Low risk", "High risk")
-    )
-  )
-
-# Save sensitivity dataframe
-write.csv(m2hepprep_prep_combined_sens, "data/m2hepprep_prep_combined_sens.csv", row.names = FALSE)
-
-# Save city-specific sensitivity dataframes
-m2hepprep_prep_combined_montreal_sens <- m2hepprep_prep_combined_sens %>%
-  filter(sdem_reside == "Greater Montreal area")
-write.csv(m2hepprep_prep_combined_montreal_sens, "data/m2hepprep_prep_combined_montreal_sens.csv", row.names = FALSE)
-
-m2hepprep_prep_combined_miami_sens <- m2hepprep_prep_combined_sens %>%
-  filter(sdem_reside == "Greater Miami area")
-write.csv(m2hepprep_prep_combined_miami_sens, "data/m2hepprep_prep_combined_miami_sens.csv", row.names = FALSE)
-
-# save data
-write.csv(m2hepprep_prep_combined_sensitivity, "data/m2hepprep_prep_combined_sensitivity.csv", row.names = FALSE)
-
-# save montreal data
-m2hepprep_prep_combined_montreal <- m2hepprep_prep_combined %>%
-  filter(sdem_reside == "Greater Montreal area")
-
-write.csv(m2hepprep_prep_combined_montreal, "data/m2hepprep_prep_combined_montreal.csv", row.names = FALSE)
-
-# save miami data
-m2hepprep_prep_combined_miami <- m2hepprep_prep_combined %>%
-  filter(sdem_reside == "Greater Miami area")
-
-write.csv(m2hepprep_prep_combined_miami, "data/m2hepprep_prep_combined_miami.csv", row.names = FALSE)
-
+write.csv(m2hepprep_combined, "data/m2hepprep_combined.csv", row.names = FALSE)
