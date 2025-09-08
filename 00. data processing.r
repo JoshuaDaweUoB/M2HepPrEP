@@ -12,7 +12,6 @@ m2hepprep_tx_raw <- read.csv("data/Initiation and adhrence.csv")
 df_filtered <- m2hepprep_raw %>%
   filter(redcap_event_name == "Baseline" | redcap_event_name == "Screening (visit 1)")
 df_filtered_complete <- df_filtered[, colSums(is.na(df_filtered)) == 0]
-write_xlsx(df_filtered_complete, "data/baseline_or_screening_complete.xlsx")
 
 # informed consent
 m2hepprep_consent <- m2hepprep_raw %>%
@@ -467,31 +466,7 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     )
   )
 
-# List of sexual risk variables to tabulate
-sexual_risk_vars <- c(
-  "sexwork_3m",
-  "bought_sex_3m",
-  "sex_with_hivpos_female_1m",
-  "condom_use_hivpos_female_1m",
-  "any_sex_3m",
-  "num_sex_partners_3m",
-  "sex_on_cocaine_1m",
-  "sex_on_heroin_1m",
-  "sex_on_other_main_drug_1m",
-  "sex_on_amphetamines_1m",
-  "sex_on_other_psychoactive_1m",
-  "sex_on_any_drug_1m"
-)
-
-# Create Table 1 for sexual risk variables
-table_sexual_risks <- CreateTableOne(
-  vars = sexual_risk_vars,
-  data = m2hepprep_prep_combined,
-  factorVars = sexual_risk_vars
-)
-
-# Print the table with all levels shown
-print(table_sexual_risks, showAllLevels = TRUE)
-
 # save data
-write.csv(m2hepprep_combined, "data/m2hepprep_combined.csv", row.names = FALSE)
+write.csv(m2hepprep_prep_combined, "data/m2hepprep_combined.csv", row.names = FALSE)
+
+View(m2hepprep_prep_combined)
