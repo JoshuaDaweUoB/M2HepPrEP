@@ -98,11 +98,24 @@ m2hepprep_prep_combined_montreal <- m2hepprep_prep_combined %>%
 ## latent class analysis
 
 # sexual and injecting risk variables
-lca_vars <- c(
-  "inject_heroin_6m", "inject_cocaine_6m", "inject_meth_6m", "inject_fent_6m",
-  "syringe_share_6m_bin", "syringe_loan_6m_bin", "syringe_cooker_6m_bin", "syringe_reuse_6m_bin", "days_used_1m_3cat",
+lca_vars1 <- c(
+  "syringe_share_6m_bin", "syringe_cooker_6m_bin", "syringe_reuse_6m_bin", "days_used_1m_3cat",
   "num_sex_partners_3m", "condom_1m", "sexwork_3m", "bought_sex_3m", "sexual_abuse_6m"
 )
+
+lca_vars2 <- c(
+  "inject_meth_6m", "inject_cocaine_6m",
+  "syringe_share_6m_bin", "syringe_cooker_6m_bin", "syringe_loan_6m_bin", "syringe_reuse_6m_bin", "days_used_1m_3cat",
+  "num_sex_partners_3m", "condom_1m", "sexwork_3m", "bought_sex_3m", "sexual_abuse_6m"
+)
+
+lca_vars3 <- c(
+  "inject_meth_6m", "inject_cocaine_6m", "inject_fent_6m", "inject_heroin_6m",
+  "syringe_share_6m_bin", "syringe_cooker_6m_bin", "syringe_loan_6m_bin", "syringe_reuse_6m_bin", "days_used_1m_3cat",
+  "num_sex_partners_3m", "condom_1m", "sexwork_3m", "bought_sex_3m", "sexual_abuse_6m"
+)
+
+lca_vars <- lca_vars2
 
 # missing values for all LCA variables to "No"
 for (v in lca_vars) {
@@ -115,7 +128,7 @@ for (v in lca_vars) {
   }
 }
 
-# lca data data
+# lca data
 lca_data <- m2hepprep_prep_combined %>%
   dplyr::select(all_of(lca_vars))
 
@@ -217,9 +230,16 @@ prop.table(table(m2hepprep_prep_combined$class, m2hepprep_prep_combined$prep_ini
 m2hepprep_prep_combined$class_factor <- factor(
   m2hepprep_prep_combined$class,
   levels = c(1, 2, 3),
-  labels = c("High Injection/Low Sexual Risk", "Low Overall Risk", "Moderate Injection/High Sexual Risk")
+  labels = c(
+    "High Injecting/Low Sexual Risk",
+    "Moderate Injecting/High Sexual Risk",
+    "Low Overall Risk"
+  )
 )
-m2hepprep_prep_combined$class_factor <- relevel(m2hepprep_prep_combined$class_factor, ref = "Low Overall Risk")
+m2hepprep_prep_combined$class_factor <- relevel(
+  m2hepprep_prep_combined$class_factor,
+  ref = "High Injecting/Low Sexual Risk"
+)
 
 # Poisson regression: prep_init ~ class
 mod_class <- glm(prep_init_num ~ class_factor + sdem_reside, data = m2hepprep_prep_combined, family = poisson(link = "log"))
@@ -240,10 +260,6 @@ poisson_class_results <- data.frame(
   p.value = p_val,
   stringsAsFactors = FALSE
 )
-
-# Class 2: "Low Overall Risk"
-# Class 1: "High Injection/Low Sexual Risk"
-# Class 3: "Moderate Injection/High Sexual Risk"
 
 # Save to Excel as a sheet
 write_xlsx(list("Poisson_class_results" = poisson_class_results), "data/poisson_class_results.xlsx")
@@ -803,7 +819,7 @@ write_xlsx(arch_regression_results_dfs, "data/arch_vars_prepinit_poisson_interac
 
 
 
-
+hi julie
 
 
 
