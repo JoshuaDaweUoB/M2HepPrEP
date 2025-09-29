@@ -761,3 +761,501 @@ offsite_data <- m2hepprep_prep_combined %>% filter(rand_arm == "Off-site")
 model_offsite <- glm(prep_init ~ arch_bin + sdem_reside, data = offsite_data, family = binomial(link = "logit"))
 results_offsite <- broom::tidy(model_offsite, exponentiate = TRUE, conf.int = TRUE)
 write.csv(results_offsite, "data/prepinit_archbin_sdemreside_logistic_offsite.csv", row.names = FALSE)
+
+
+
+
+
+
+# --- Helper for descriptive summaries with concatenated x (x.x)
+get_prepinit_summary <- function(var, data) {
+  tab <- table(data[[var]], data$prep_init, useNA = "ifany")
+  df <- as.data.frame(tab)
+  
+  df <- df %>%
+    group_by(Var1) %>%
+    summarise(
+      Total = sum(Freq),
+      NInitiated = sum(Freq[Var2 == "Yes"], na.rm = TRUE),
+      PercInitiated = round(100 * NInitiated / Total, 1),
+      .groups = "drop"
+    ) %>%
+    rename(Level = Var1) %>%
+    mutate(x = paste0(NInitiated, " (", PercInitiated, ")"))  # <-- concatenated column
+  
+  df$Variable <- var
+  return(df %>% select(Variable, Level, Total, x))  # return concatenated column instead of separate N/Perc
+}
+
+# --- Fit Poisson regression with robust SE
+fit_poisson_pr <- function(var, data) {
+  # skip if fewer than 2 levels
+  if(length(unique(na.omit(data[[var]]))) < 2) return(NULL)
+  
+  formula <- as.formula(paste("prep_init_num ~", var, "+ sdem_reside"))
+  mod <- glm(formula, data = data, family = poisson(link = "log"))
+  
+  robust_se <- sqrt(diag(vcovHC(mod, type = "HC0")))
+  coefs <- coeftest(mod, vcov. = vcovHC(mod, type = "HC0"))
+  
+  df <- data.frame(
+    term = rownames(coefs),
+    estimate = exp(coefs[, "Estimate"]),
+    conf.low = exp(coefs[, "Estimate"] - 1.96 * robust_se),
+    conf.high = exp(coefs[, "Estimate"] + 1.96 * robust_se),
+    p.value = coefs[, "Pr(>|z|)"],
+    stringsAsFactors = FALSE
+  )
+  
+  df <- df %>%
+    mutate(
+      Variable = var,
+      Level = gsub(paste0("^", var), "", term),
+      Level = ifelse(Level == "", levels(data[[var]])[1], Level)
+    ) %>%
+    filter(term != "(Intercept)")
+  
+  return(df)
+}
+
+
+# Function to add empty row between variables
+add_empty_rows <- function(df) {
+  df_list <- split(df, df$Variable)
+  df_list <- lapply(df_list, function(x) rbind(x, setNames(as.list(rep(NA, ncol(x))), colnames(x))))
+  df <- bind_rows(df_list)
+  return(df)
+}
+
+# --- Main loop
+arch_regression_results_dfs <- lapply(names(risk_lists), function(group_name) {
+  message("\n--- Processing group: ", group_name, " ---")
+  
+  # Initialize list to store results for each variable
+  out_list <- list()
+  
+  for (var in risk_lists[[group_name]]) {
+    if(var %in% names(m2hepprep_prep_combined)) {
+      reg_df <- fit_poisson_pr(var, m2hepprep_prep_combined)
+      desc_df <- get_prepinit_summary(var, m2hepprep_prep_combined)
+      
+      all_levels <- data.frame(
+        Variable = var,
+        Level = levels(m2hepprep_prep_combined[[var]]),
+        stringsAsFactors = FALSE
+      )
+      
+      combined <- all_levels %>%
+        left_join(reg_df %>%
+                    mutate(`PR (95% CI)` = sprintf("%.2f (%.2f-%.2f)", estimate, conf.low, conf.high),
+                           `P-value` = ifelse(p.value < 0.001, "<0.001", sprintf("%.3f", p.value))) %>%
+                    select(Variable, Level, `PR (95% CI)`, `P-value`),
+                  by = c("Variable", "Level")) %>%
+        left_join(desc_df, by = c("Variable", "Level")) %>%
+        mutate(
+          `PR (95% CI)` = ifelse(is.na(`PR (95% CI)`), "ref.", `PR (95% CI)`),
+          `P-value` = ifelse(is.na(`P-value`), "", `P-value`)
+        )
+      
+      # Add empty row
+      combined <- rbind(combined, setNames(as.list(rep(NA, ncol(combined))), colnames(combined)))
+      
+      out_list[[var]] <- combined
+    }
+  }
+  
+  # Bind all variables in original order
+  out <- bind_rows(out_list)
+  return(out)
+})
+
+names(arch_regression_results_dfs) <- names(risk_lists)
+
+# Save to Excel with each group as a sheet
+write_xlsx(arch_regression_results_dfs, "data/arch_vars_prepinit_poisson_results.xlsx")
+
+fit_poisson_pr <- function(var, data) {
+  # skip if fewer than 2 levels
+  if(length(unique(na.omit(data[[var]]))) < 2) return(NULL)
+  
+  formula <- as.formula(paste("prep_init_num ~", var))  # <-- no sdem_reside
+  mod <- glm(formula, data = data, family = poisson(link = "log"))
+  
+  robust_se <- sqrt(diag(vcovHC(mod, type = "HC0")))
+  coefs <- coeftest(mod, vcov. = vcovHC(mod, type = "HC0"))
+  
+  df <- data.frame(
+    term = rownames(coefs),
+    estimate = exp(coefs[, "Estimate"]),
+    conf.low = exp(coefs[, "Estimate"] - 1.96 * robust_se),
+    conf.high = exp(coefs[, "Estimate"] + 1.96 * robust_se),
+    p.value = coefs[, "Pr(>|z|)"],
+    stringsAsFactors = FALSE
+  )
+  
+  df <- df %>%
+    mutate(
+      Variable = var,
+      Level = gsub(paste0("^", var), "", term),
+      Level = ifelse(Level == "", levels(data[[var]])[1], Level)
+    ) %>%
+    filter(term != "(Intercept)")
+  
+  return(df)
+}
+
+# --- Main loop (Miami only) ---
+arch_regression_results_dfs_miami <- lapply(names(risk_lists), function(group_name) {
+  
+  out_list <- list()
+  
+  for (var in risk_lists[[group_name]]) {
+    if (var %in% names(m2hepprep_prep_combined_miami)) {
+      
+      # Fit Poisson regression
+      formula <- as.formula(paste("prep_init_num ~", var))
+      mod <- glm(formula, data = m2hepprep_prep_combined_miami, family = poisson(link = "log"))
+      robust_se <- sqrt(diag(vcovHC(mod, type = "HC0")))
+      coefs <- coeftest(mod, vcov. = vcovHC(mod, type = "HC0"))
+      
+      reg_df <- data.frame(
+        term = rownames(coefs),
+        estimate = exp(coefs[, "Estimate"]),
+        conf.low = exp(coefs[, "Estimate"] - 1.96 * robust_se),
+        conf.high = exp(coefs[, "Estimate"] + 1.96 * robust_se),
+        p.value = coefs[, "Pr(>|z|)"],
+        stringsAsFactors = FALSE
+      ) %>%
+        mutate(
+          Variable = var,
+          Level = gsub(paste0("^", var), "", term),
+          Level = ifelse(Level == "", levels(m2hepprep_prep_combined_miami[[var]])[1], Level)
+        ) %>%
+        filter(term != "(Intercept)")
+      
+      # Descriptive summary
+      desc_df <- get_prepinit_summary(var, m2hepprep_prep_combined_miami)
+      
+      # Combine regression and descriptive summaries
+      all_levels <- data.frame(
+        Variable = var,
+        Level = levels(m2hepprep_prep_combined_miami[[var]]),
+        stringsAsFactors = FALSE
+      )
+      
+      combined <- all_levels %>%
+        left_join(
+          reg_df %>%
+            mutate(
+              `PR (95% CI)` = sprintf("%.2f (%.2f-%.2f)", estimate, conf.low, conf.high),
+              `P-value` = ifelse(p.value < 0.001, "<0.001", sprintf("%.3f", p.value))
+            ) %>%
+            select(Variable, Level, `PR (95% CI)`, `P-value`),
+          by = c("Variable", "Level")
+        ) %>%
+        left_join(desc_df, by = c("Variable", "Level")) %>%
+        mutate(
+          `PR (95% CI)` = ifelse(is.na(`PR (95% CI)`), "ref.", `PR (95% CI)`),
+          `P-value` = ifelse(is.na(`P-value`), "", `P-value`)
+        )
+      
+      # Add empty row between variables
+      combined <- rbind(combined, setNames(as.list(rep(NA, ncol(combined))), colnames(combined)))
+      
+      out_list[[var]] <- combined
+    }
+  }
+  
+  bind_rows(out_list)
+})
+
+names(arch_regression_results_dfs_miami) <- names(risk_lists)
+
+# Save results to Excel
+write_xlsx(arch_regression_results_dfs_miami, "data/arch_vars_prepinit_poisson_results_miami.xlsx")
+
+# --- Main loop (Montreal only) ---
+arch_regression_results_dfs_montreal <- lapply(names(risk_lists), function(group_name) {
+  
+  out_list <- list()
+  
+  for (var in risk_lists[[group_name]]) {
+    if (var %in% names(m2hepprep_prep_combined_montreal)) {
+      
+      # Fit Poisson regression
+      formula <- as.formula(paste("prep_init_num ~", var))
+      mod <- glm(formula, data = m2hepprep_prep_combined_montreal, family = poisson(link = "log"))
+      robust_se <- sqrt(diag(vcovHC(mod, type = "HC0"))
+      )
+      coefs <- coeftest(mod, vcov. = vcovHC(mod, type = "HC0"))
+      
+      reg_df <- data.frame(
+        term = rownames(coefs),
+        estimate = exp(coefs[, "Estimate"]),
+        conf.low = exp(coefs[, "Estimate"] - 1.96 * robust_se),
+        conf.high = exp(coefs[, "Estimate"] + 1.96 * robust_se),
+        p.value = coefs[, "Pr(>|z|)"],
+        stringsAsFactors = FALSE
+      ) %>%
+        mutate(
+          Variable = var,
+          Level = gsub(paste0("^", var), "", term),
+          Level = ifelse(Level == "", levels(m2hepprep_prep_combined_montreal[[var]])[1], Level)
+        ) %>%
+        filter(term != "(Intercept)")
+      
+      # Descriptive summary
+      desc_df <- get_prepinit_summary(var, m2hepprep_prep_combined_montreal)
+      
+      # Combine regression and descriptive summaries
+      all_levels <- data.frame(
+        Variable = var,
+        Level = levels(m2hepprep_prep_combined_montreal[[var]]),
+        stringsAsFactors = FALSE
+      )
+      
+      combined <- all_levels %>%
+        left_join(
+          reg_df %>%
+            mutate(
+              `PR (95% CI)` = sprintf("%.2f (%.2f-%.2f)", estimate, conf.low, conf.high),
+              `P-value` = ifelse(p.value < 0.001, "<0.001", sprintf("%.3f", p.value))
+            ) %>%
+            select(Variable, Level, `PR (95% CI)`, `P-value`),
+          by = c("Variable", "Level")
+        ) %>%
+        left_join(desc_df, by = c("Variable", "Level")) %>%
+        mutate(
+          `PR (95% CI)` = ifelse(is.na(`PR (95% CI)`), "ref.", `PR (95% CI)`),
+          `P-value` = ifelse(is.na(`P-value`), "", `P-value`)
+        )
+      
+      # Add empty row between variables
+      combined <- rbind(combined, setNames(as.list(rep(NA, ncol(combined))), colnames(combined)))
+      
+      out_list[[var]] <- combined
+    }
+  }
+  
+  bind_rows(out_list)
+})
+
+names(arch_regression_results_dfs_montreal) <- names(risk_lists)
+
+# Save results to Excel
+write_xlsx(arch_regression_results_dfs_montreal, "data/arch_vars_prepinit_poisson_results_montreal.xlsx")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Save to Excel with each group as a sheet
+write_xlsx(arch_regression_results_dfs_miami, "data/arch_vars_prepinit_poisson_results_miami.xlsx")
+
+# --- Main loop (Montreal only)
+arch_regression_results_dfs_montreal <- lapply(names(risk_lists), function(group_name) {
+  message("\n--- Processing group: ", group_name, " ---")
+  
+  # Initialize list to store results for each variable
+  out_list <- list()
+  
+  for (var in risk_lists[[group_name]]) {
+    if(var %in% names(m2hepprep_prep_combined_montreal)) {
+      reg_df <- fit_poisson_pr(var, m2hepprep_prep_combined_montreal)
+      desc_df <- get_prepinit_summary(var, m2hepprep_prep_combined_montreal)
+      
+      all_levels <- data.frame(
+        Variable = var,
+        Level = levels(m2hepprep_prep_combined_montreal[[var]]),
+        stringsAsFactors = FALSE
+      )
+      
+      combined <- all_levels %>%
+        left_join(reg_df %>%
+                    mutate(`PR (95% CI)` = sprintf("%.2f (%.2f-%.2f)", estimate, conf.low, conf.high),
+                           `P-value` = ifelse(p.value < 0.001, "<0.001", sprintf("%.3f", p.value))) %>%
+                    select(Variable, Level, `PR (95% CI)`, `P-value`),
+                  by = c("Variable", "Level")) %>%
+        left_join(desc_df, by = c("Variable", "Level")) %>%
+        mutate(
+          `PR (95% CI)` = ifelse(is.na(`PR (95% CI)`), "ref.", `PR (95% CI)`),
+          `P-value` = ifelse(is.na(`P-value`), "", `P-value`)
+        )
+      
+      # Add empty row
+      combined <- rbind(combined, setNames(as.list(rep(NA, ncol(combined))), colnames(combined)))
+      
+      out_list[[var]] <- combined
+    }
+  }
+  
+  # Bind all variables in original order
+  out <- bind_rows(out_list)
+  return(out)
+})
+
+names(arch_regression_results_dfs_montreal) <- names(risk_lists)
+
+# Save to Excel with each group as a sheet
+write_xlsx(arch_regression_results_dfs_montreal, "data/arch_vars_prepinit_poisson_results_montreal.xlsx")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# --- Helper for descriptive summaries
+get_prepinit_summary <- function(var, data) {
+  tab <- table(data[[var]], data$prep_init, useNA = "ifany")
+  df <- as.data.frame(tab)
+  
+  df <- df %>%
+    group_by(Var1) %>%
+    summarise(
+      Total = sum(Freq),
+      NInitiated = sum(Freq[Var2 == "Yes"], na.rm = TRUE),
+      PercInitiated = round(100 * NInitiated / Total, 1),
+      .groups = "drop"
+    ) %>%
+    rename(Level = Var1)
+  
+  df$Variable <- var
+  return(df)
+}
+
+# --- Fit Poisson regression with robust SE, including interaction
+fit_poisson_pr_interaction <- function(var, data) {
+  if(length(levels(data[[var]])) < 2) return(NULL)
+  
+  formula <- as.formula(paste("prep_init_num ~ sdem_reside *", var))
+  mod <- glm(formula, data = data, family = poisson(link = "log"))
+  
+  robust_se <- sqrt(diag(vcovHC(mod, type = "HC0")))
+  coefs <- coeftest(mod, vcov. = vcovHC(mod, type = "HC0"))
+  
+  df <- data.frame(
+    term = rownames(coefs),
+    estimate = exp(coefs[, "Estimate"]),
+    conf.low = exp(coefs[, "Estimate"] - 1.96 * robust_se),
+    conf.high = exp(coefs[, "Estimate"] + 1.96 * robust_se),
+    p.value = coefs[, "Pr(>|z|)"],
+    stringsAsFactors = FALSE
+  )
+  
+  # Label terms clearly
+  df <- df %>%
+    mutate(
+      Variable = var,
+      Level = ifelse(grepl(":", term), paste0("Interaction: ", term),
+                     gsub(paste0("^", var), "", term)),
+      Level = ifelse(Level == "", levels(data[[var]])[1], Level)
+    ) %>%
+    filter(term != "(Intercept)")
+  
+  return(df)
+}
+
+# --- Main loop
+arch_regression_results_dfs <- lapply(names(risk_lists), function(group_name) {
+  message("\n--- Processing group: ", group_name, " ---")
+  
+  # Fit Poisson regressions with interaction
+  group_results <- lapply(risk_lists[[group_name]], function(var) {
+    if(var %in% names(m2hepprep_prep_combined)) {
+      fit_poisson_pr_interaction(var, m2hepprep_prep_combined)
+    } else NULL
+  })
+  group_results <- bind_rows(group_results)
+  
+  # Descriptive summaries for all variables
+  summary_df <- bind_rows(
+    lapply(risk_lists[[group_name]], function(var) {
+      if(var %in% names(m2hepprep_prep_combined)) {
+        get_prepinit_summary(var, m2hepprep_prep_combined)
+      } else NULL
+    })
+  )
+  
+  # Join model output and descriptive counts
+  out <- group_results %>%
+    left_join(summary_df, by = c("Variable", "Level")) %>%
+    mutate(
+      `PR (95% CI)` = sprintf("%.2f (%.2f-%.2f)", estimate, conf.low, conf.high),
+      `P-value` = ifelse(p.value < 0.001, "<0.001", sprintf("%.3f", p.value))
+    ) %>%
+    select(Variable, Level, `PR (95% CI)`, `P-value`, Total, NInitiated, PercInitiated)
+  
+  return(out)
+})
+
+# Keep group names
+names(arch_regression_results_dfs) <- names(risk_lists)
+
+# Save to Excel
+write_xlsx(arch_regression_results_dfs, "data/arch_vars_prepinit_poisson_interaction_results.xlsx")
+
