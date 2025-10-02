@@ -16,7 +16,7 @@ df_filtered_complete <- df_filtered[, colSums(is.na(df_filtered)) == 0]
 # informed consent
 m2hepprep_consent <- m2hepprep_raw %>%
   filter(redcap_event_name == "Baseline") %>%
-  select(record_id, rc_informed)
+  dplyr::select(record_id, rc_informed)
 
 # baseline vars
 m2hepprep_baseline_vars <- m2hepprep_raw %>%
@@ -39,11 +39,11 @@ m2hepprep_baseline_vars <- m2hepprep_raw %>%
 # baseline data
 m2hepprep_baseline <- m2hepprep_raw %>%
   filter(redcap_event_name == "Screening (visit 1)") %>%
-  select(record_id, id_paper, rand_arm, rand_date, is_eligible, sdem_visit, sdem_reside, sdem_lang_mia_2, sdem_age, sdem_oat, sdem_sev, sdem_sex, sdem_gender, sdem_prg_c, vcp_inject_6mo, sdem_hiv_etst, sdem_hiv_rtst_r, sdem_prp_cu, sdem_hcv, sdem_wil_fol, sdem_elig, sdem_hcv_etst, sdem_hcv_rtst, sdem_hcv_rtst_r, sdem_hiv_rtst, scr_c_hcv_res_retired, insti, sdem_slep6m, sdem_live6m_hls, sdem_live6m_shl1, sdem_live6m_trs, sdem_live6m_htl, sdem_live6m_hiv, sdem_live6m_sut, sdem_live6m_shl2, sdem_live6m_shl3, sdem_live6m_shl4, sdem_live6m_shl5, sdem_idu, sdem_idu6m___0, sdem_idu6m___1, sdem_idu6m___2, sdem_idu6m___3, sdem_idu6m___4, sdem_idu6m___5, sdem_idu6m___6, sdem_idu6m___7, sdem_dis_hcv, sdem_dis_hiv, sdem_dis_sex, sdem_dis_gay, sdem_dis_sub, sdem_dis_race, vir_dbs, vir_rna2)
+  dplyr::select(record_id, id_paper, rand_arm, rand_date, is_eligible, sdem_visit, sdem_reside, sdem_lang_mia_2, sdem_age, sdem_oat, sdem_sev, sdem_sex, sdem_gender, sdem_prg_c, vcp_inject_6mo, sdem_hiv_etst, sdem_hiv_rtst_r, sdem_prp_cu, sdem_hcv, sdem_wil_fol, sdem_elig, sdem_hcv_etst, sdem_hcv_rtst, sdem_hcv_rtst_r, sdem_hiv_rtst, scr_c_hcv_res_retired, insti, sdem_slep6m, sdem_live6m_hls, sdem_live6m_shl1, sdem_live6m_trs, sdem_live6m_htl, sdem_live6m_hiv, sdem_live6m_sut, sdem_live6m_shl2, sdem_live6m_shl3, sdem_live6m_shl4, sdem_live6m_shl5, sdem_idu, sdem_idu6m___0, sdem_idu6m___1, sdem_idu6m___2, sdem_idu6m___3, sdem_idu6m___4, sdem_idu6m___5, sdem_idu6m___6, sdem_idu6m___7, sdem_dis_hcv, sdem_dis_hiv, sdem_dis_sex, sdem_dis_gay, sdem_dis_sub, sdem_dis_race, vir_dbs, vir_rna2)
 
 # prep initiation
 m2hepprep_tx_clean <- m2hepprep_tx_raw %>%
-  select(record_id, rand_to_disp, within_6_months) %>%
+  dplyr::select(record_id, rand_to_disp, within_6_months) %>%
   mutate(prep_init = factor(1, levels = c(0, 1), labels = c("No", "Yes"))) %>%
   filter(!is.na(record_id) & record_id != "")
 
