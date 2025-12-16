@@ -10,40 +10,106 @@ m2hepprep_tx_raw <- read.csv("data/Initiation and adhrence.csv")
 
 # sheet of baseline/screening rows
 df_filtered <- m2hepprep_raw %>%
-  filter(redcap_event_name == "Baseline" | redcap_event_name == "Screening (visit 1)")
+  filter(redcap_event_name %in% c("Baseline", "Screening (visit 1)"))
+
 df_filtered_complete <- df_filtered[, colSums(is.na(df_filtered)) == 0]
 
+# ---------------------------
 # informed consent
+# ---------------------------
 m2hepprep_consent <- m2hepprep_raw %>%
   filter(redcap_event_name == "Baseline") %>%
-  dplyr::select(record_id, rc_informed)
+  select(any_of(c("record_id", "rc_informed")))
 
+# ---------------------------
 # baseline vars
+# ---------------------------
+
+condom_vars <- c(
+  # Female partners
+  "srb_1m_fc_pv","srb_1m_fc_po","srb_1m_fc_pa",
+  "srb_1m_fc_npv","srb_1m_fc_npo","srb_1m_fc_npa",
+  "srb_1m_fc_cv","srb_1m_fc_co","srb_1m_fc_ca",
+  "srb_1m_fc_mcv","srb_1m_fc_mco","srb_1m_fc_mca",
+  "srb_1m_fc_hiv","srb_1m_fc_hcv",
+
+  # Male partners
+  "srb_1m_mc_pv","srb_1m_mc_po","srb_1m_mc_pa",
+  "srb_1m_mc_npv","srb_1m_mc_npo","srb_1m_mc_npa",
+  "srb_1m_mc_cv","srb_1m_mc_co","srb_1m_mc_ca",
+  "srb_1m_mc_mcv","srb_1m_mc_mco","srb_1m_mc_mca",
+  "srb_1m_mc_hiv","srb_1m_mc_hcv"
+)
+
+# check which condom_vars exist in your dataframe
+condom_vars[condom_vars %in% colnames(m2hepprep_raw)]
+# check which ones are missing
+condom_vars[!condom_vars %in% colnames(m2hepprep_raw)]
+
+baseline_vars <- c(
+  "record_id",
+  "aiv_kid_evr_pa","aiv_adt_evr_pa","aiv_6m_pa",
+  "aiv_kid_evr_sex","aiv_adt_evr_sex","aiv_6m_sex",
+  "cla_2","cla_16a","cla_16c",
+  "nms_er","nms_hps_drg","nms_otp","nms_rsd","nms_auc","nms_opd","nms_mnt","nms_trp",
+  "srb_1m_m","dem_edu","nms_emp","nms_inc","nms_inc_cad","nms_inc_usd",
+  "srb_1m_fc_hiv","srb_3m_m",
+  "nms_opd_med___0","nms_opd_med___1","nms_opd_med___2","nms_opd_med___3",
+  "nms_opd_med___4","nms_opd_med___5","nms_opd_med___6","nms_opd_med_ot",
+  "odu_6m","dem_hltins","sdu_srg","sub_frq1m",
+  "srb_3m_sxp","srb_1m_m_hiv","srb_1m_f_hiv",
+  "srb_1m_f_drg_cc","srb_1m_f_drg_hro","srb_1m_f_drg_main",
+  "srb_1m_f_drg_aph","srb_1m_f_drg_psy",
+  "cdu_17","cdu_15",
+  paste0("sub_6m", 1:27),
+  "sdu_wrk","sdu_wrk_6m_frq",
+  "srb_3m","idu_6mplc2___3",
+  "dem_gender_id","dem_gender",
+  "srb_3m_prst","srb_prst04","srb_3m_f",
+  "srb_1m_fc_pv","srb_1m_fc_pa","srb_1m_fc_npv","srb_1m_fc_npa",
+  "srb_1m_fc_cv","srb_1m_fc_ca","srb_1m_fc_mcv","srb_1m_fc_mco","srb_1m_fc_mca",
+  "srb_1m_mc_pv","srb_1m_mc_pa","srb_1m_mc_npv","srb_1m_mc_npa",
+  "srb_1m_mc_cv","srb_1m_mc_ca","srb_1m_mc_mcv","srb_1m_mc_mco","srb_1m_mc_mca",
+  "srb_1m_f",
+  "srb_3m_f_sxp_pidu","srb_3m_f_sxp_npidu","srb_3m_f_sxp_cidu","srb_3m_f_sxp_mcidu",
+  "srb_3m_m_sxp_pidu","srb_3m_m_sxp_npidu","srb_3m_m_sxp_cidu","srb_3m_m_sxp_mcidu",
+  condom_vars
+)
+
 m2hepprep_baseline_vars <- m2hepprep_raw %>%
   filter(redcap_event_name == "Baseline") %>%
-  dplyr::select(
-    record_id, aiv_kid_evr_pa, aiv_adt_evr_pa, aiv_6m_pa, aiv_kid_evr_sex, aiv_adt_evr_sex, aiv_6m_sex,
-    cla_2, cla_16a, cla_16c, nms_er, nms_hps_drg, nms_otp, nms_rsd, nms_auc, nms_opd, nms_mnt, nms_trp,
-    srb_1m_m, dem_edu, nms_emp, nms_inc, nms_inc_cad, nms_inc_usd, srb_1m_fc_hiv, srb_3m_m,
-    nms_opd_med___0, nms_opd_med___1, nms_opd_med___2, nms_opd_med___3, nms_opd_med___4, nms_opd_med___5, nms_opd_med___6, nms_opd_med_ot,
-    odu_6m, dem_hltins, sdu_srg, sub_frq1m, srb_3m_sxp, srb_1m_m_hiv, srb_1m_f_hiv, srb_1m_f_drg_cc, srb_1m_f_drg_hro, srb_1m_f_drg_main,
-    srb_1m_f_drg_aph, srb_1m_f_drg_psy, cdu_17_6m, cdu_15_6m,
-    sub_6m1, sub_6m2, sub_6m3, sub_6m4, sub_6m5, sub_6m6, sub_6m7, sub_6m8, sub_6m9, sub_6m10, sub_6m11, sub_6m12, 
-    sub_6m13, sub_6m14, sub_6m15, sub_6m16, sub_6m17, sub_6m18, sub_6m19, sub_6m20, sub_6m21, sub_6m22, sub_6m23, sub_6m24, sub_6m25, sub_6m26, sub_6m27,
-    sdu_wrk, sdu_wrk_6m_frq, srb_3m, idu_6mplc2___3, dem_gender_id, dem_gender,
-    srb_3m_prst, srb_prst04, srb_3m_f, srb_1m_fc_pv, srb_1m_fc_pa, srb_1m_fc_npv, srb_1m_fc_npa, srb_1m_fc_cv, srb_1m_fc_ca, srb_1m_fc_mcv, srb_1m_fc_mco, srb_1m_fc_mca,
-    srb_1m_mc_pv, srb_1m_mc_pa, srb_1m_mc_npv, srb_1m_mc_npa, srb_1m_mc_cv, srb_1m_mc_ca, srb_1m_mc_mcv, srb_1m_mc_mco, srb_1m_mc_mca, srb_1m_f,
-    srb_3m_f_sxp_pidu, srb_3m_f_sxp_npidu, srb_3m_f_sxp_cidu, srb_3m_f_sxp_mcidu, srb_3m_m_sxp_pidu, srb_3m_m_sxp_npidu, srb_3m_m_sxp_cidu, srb_3m_m_sxp_mcidu
-  )
+  select(any_of(baseline_vars))
 
-# baseline data
+# ---------------------------
+# screening/baseline visit data (SAFE)
+# ---------------------------
+screening_vars <- c(
+  "record_id","id_paper","rand_arm","rand_date","is_eligible",
+  "sdem_visit","sdem_reside","sdem_lang_mia_2","sdem_age","sdem_oat",
+  "sdem_sev","sdem_sex","sdem_gender","sdem_prg_c","vcp_inject_6mo",
+  "sdem_hiv_etst","sdem_hiv_rtst","sdem_hiv_rtst_r","sdem_prp_cu",
+  "sdem_hcv","sdem_wil_fol","sdem_elig","sdem_hcv_etst",
+  "sdem_hcv_rtst","sdem_hcv_rtst_r",
+  "scr_c_hcv_res_retired","insti",
+  "sdem_slep6m","sdem_live6m_hls","sdem_live6m_shl1","sdem_live6m_trs",
+  "sdem_live6m_htl","sdem_live6m_hiv","sdem_live6m_sut",
+  paste0("sdem_live6m_shl", 2:5),
+  "sdem_idu",
+  paste0("sdem_idu6m___", 0:7),
+  "sdem_dis_hcv","sdem_dis_hiv","sdem_dis_sex","sdem_dis_gay",
+  "sdem_dis_sub","sdem_dis_race",
+  "vir_dbs","vir_rna2"
+)
+
 m2hepprep_baseline <- m2hepprep_raw %>%
   filter(redcap_event_name == "Screening (visit 1)") %>%
-  dplyr::select(record_id, id_paper, rand_arm, rand_date, is_eligible, sdem_visit, sdem_reside, sdem_lang_mia_2, sdem_age, sdem_oat, sdem_sev, sdem_sex, sdem_gender, sdem_prg_c, vcp_inject_6mo, sdem_hiv_etst, sdem_hiv_rtst_r, sdem_prp_cu, sdem_hcv, sdem_wil_fol, sdem_elig, sdem_hcv_etst, sdem_hcv_rtst, sdem_hcv_rtst_r, sdem_hiv_rtst, scr_c_hcv_res_retired, insti, sdem_slep6m, sdem_live6m_hls, sdem_live6m_shl1, sdem_live6m_trs, sdem_live6m_htl, sdem_live6m_hiv, sdem_live6m_sut, sdem_live6m_shl2, sdem_live6m_shl3, sdem_live6m_shl4, sdem_live6m_shl5, sdem_idu, sdem_idu6m___0, sdem_idu6m___1, sdem_idu6m___2, sdem_idu6m___3, sdem_idu6m___4, sdem_idu6m___5, sdem_idu6m___6, sdem_idu6m___7, sdem_dis_hcv, sdem_dis_hiv, sdem_dis_sex, sdem_dis_gay, sdem_dis_sub, sdem_dis_race, vir_dbs, vir_rna2)
+  select(any_of(screening_vars))
 
+# ---------------------------
 # prep initiation
+# ---------------------------
 m2hepprep_tx_clean <- m2hepprep_tx_raw %>%
-  dplyr::select(record_id, rand_to_disp, within_6_months) %>%
+  select(any_of(c("record_id", "rand_to_disp", "within_6_months"))) %>%
   mutate(prep_init = factor(1, levels = c(0, 1), labels = c("No", "Yes"))) %>%
   filter(!is.na(record_id) & record_id != "")
 
@@ -369,6 +435,8 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
   )
 
 # sexual risks
+
+# set empty strings to NA
 cols_to_na <- c(
   "srb_3m_prst", "srb_prst04", "srb_1m_f_hiv", "sdem_sex", "srb_3m", "srb_1m_fc_hiv", "srb_3m_sxp",
   "srb_1m_f_drg_cc", "srb_1m_f_drg_hro", "srb_1m_f_drg_main", "srb_1m_f_drg_aph", "srb_1m_f_drg_psy",
@@ -378,97 +446,89 @@ cols_to_na <- c(
   "srb_3m_m_sxp_cidu", "srb_3m_m_sxp_mcidu"
 )
 
-condom_vars <- c(
-  # Female partners
-  "srb_1m_fc_pv_3m","srb_1m_fc_po_3m","srb_1m_fc_pa_3m",
-  "srb_1m_fc_npv_3m","srb_1m_fc_npo_3m","srb_1m_fc_npa_3m",
-  "srb_1m_fc_cv_3m","srb_1m_fc_co_3m","srb_1m_fc_ca_3m",
-  "srb_1m_fc_mcv_3m","srb_1m_fc_mco_3m","srb_1m_fc_mca_3m",
-  "srb_1m_fc_hiv_3m","srb_1m_fc_hcv_3m",
-
-  # Male partners
-  "srb_1m_mc_pv_3m","srb_1m_mc_po_3m","srb_1m_mc_pa_3m",
-  "srb_1m_mc_npv_3m","srb_1m_mc_npo_3m","srb_1m_mc_npa_3m",
-  "srb_1m_mc_cv_3m","srb_1m_mc_co_3m","srb_1m_mc_ca_3m",
-  "srb_1m_mc_mcv_3m","srb_1m_mc_mco_3m","srb_1m_mc_mca_3m",
-  "srb_1m_mc_hiv_3m","srb_1m_mc_hcv_3m"
-)
-
 m2hepprep_prep_combined[cols_to_na] <- lapply(
   m2hepprep_prep_combined[cols_to_na],
   function(x) ifelse(x == "", NA, x)
 )
 
+# derive condom_1m
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
-  rowwise() %>%   # <-- needed for c_across()
+  mutate(across(all_of(condom_vars),
+                ~case_when(
+                  . %in% c("Never", "Rarely", "Some of the time") ~ 0,
+                  . %in% c("Sometimes", "Occasionally") ~ 1,
+                  . %in% c("Often", "Most of the time") ~ 2,
+                  . %in% c("Always", "Very often") ~ 3,
+                  TRUE ~ NA_real_
+                )))
+
+m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
+  rowwise() %>%
   mutate(
-
-    sexwork_3m = factor(
-      case_when(
-        srb_3m_prst == "Yes" ~ "1",
-        srb_3m_prst == "No" ~ "0",
-        srb_3m != "Yes" ~ "0",
-        TRUE ~ NA_character_
-      ),
-      levels = c("0", "1")
-    ),
-
-    bought_sex_3m = factor(
-      case_when(
-        srb_prst04 == "Yes" ~ "1",
-        srb_prst04 == "No" ~ "0",
-        srb_3m != "Yes" ~ "0",
-        TRUE ~ NA_character_
-      ),
-      levels = c("0", "1")
-    ),
-
-    num_sex_partners_3m = factor(
-      case_when(
-        as.numeric(srb_3m_sxp) == 0 ~ "0",
-        as.numeric(srb_3m_sxp) == 1 ~ "1",
-        as.numeric(srb_3m_sxp) > 1 ~ "2",
-        srb_3m != "Yes" ~ "0",
-        is.na(srb_3m_sxp) ~ NA_character_
-      ),
-      levels = c("0", "1", "2")
-    ),
-
-    # -----------------------
-    # Condom use (NEW, integrated)
-    # -----------------------
-
-    any_inconsistent = any(c_across(all_of(condom_vars)) %in% c(0, 1, 2), na.rm = TRUE),
-    any_consistent   = any(c_across(all_of(condom_vars)) %in% c(3, 4), na.rm = TRUE),
-
+    any_inconsistent = any(c_across(all_of(condom_vars)) %in% c(0,1,2), na.rm = TRUE),
+    any_consistent   = any(c_across(all_of(condom_vars)) %in% c(3), na.rm = TRUE),
     condom_1m = factor(
       case_when(
         srb_1m_m == "No" | srb_1m_f == "No" ~ 0,
-        any_inconsistent ~ 3,  # MUST come before consistent
+        any_inconsistent ~ 3,
         any_consistent ~ 2,
         srb_3m != "Yes" ~ 1,
         TRUE ~ NA_real_
       ),
-      levels = c(0, 1, 2, 3),
+      levels = c(0,1,2,3),
       labels = c(
         "No sex past month",
         "No sex past 3 months",
         "Very often / Always",
         "Never / Rarely / Some of the time"
       )
-    ),
-
-    sex_work_ever = factor(
-      case_when(
-        cla_16a == "No" ~ "0",
-        cla_16a == "Yes" ~ "1",
-        TRUE ~ NA_character_
-      ),
-      levels = c("0", "1")
     )
-
   ) %>%
   ungroup()
+
+## other sexual risk variables
+m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
+  mutate(
+    sexwork_3m = factor(
+      case_when(
+        srb_3m_prst == "Yes" ~ "1",
+        TRUE ~ "0"
+      ),
+      levels = c("0", "1")
+    ),
+    bought_sex_3m = factor(
+      case_when(
+        srb_prst04 == "Yes" ~ "1",
+        TRUE ~ "0"
+      ),
+      levels = c("0", "1")
+    ),
+    num_sex_partners_3m = factor(
+      case_when(
+        as.numeric(srb_3m_sxp) == 0 ~ "0",
+        as.numeric(srb_3m_sxp) == 1 ~ "1",
+        as.numeric(srb_3m_sxp) > 1 ~ "2",
+        TRUE ~ "0"
+      ),
+      levels = c("0", "1", "2")
+    ),
+    sex_work_ever = factor(
+      case_when(
+        cla_16a == "Yes" ~ "1",
+        TRUE ~ "0"
+      ),
+      levels = c("0", "1")
+    ),
+    condom_intent_6m = factor(
+      case_when(
+        cdu_17 == "Disagree" | cdu_17 == "Strongly Disagree" ~ "0",
+        cdu_17 == "Neither agree nor disagree" ~ "1",
+        cdu_17 == "Agree" | cdu_17 == "Strongly Agree" ~ "2",
+        TRUE ~ NA_character_  # catches any unexpected values
+      ),
+      levels = c("0", "1", "2")
+    )
+  )
 
 # save data
 write.csv(m2hepprep_prep_combined, "data/m2hepprep_combined.csv", row.names = FALSE)

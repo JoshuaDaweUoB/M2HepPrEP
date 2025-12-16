@@ -9,6 +9,9 @@ library(poLCA)
 library(ggplot2)
 library(clue)
 
+# Run the 00. data processing script
+source("code/00. data processing.R", local = TRUE)
+
 # ============================================================
 # DEFINE LCA VARIABLES
 # ============================================================
@@ -17,7 +20,7 @@ lca_vars <- c(
   "syringe_share_6m_bin", "syringe_cooker_6m_bin",
   "syringe_loan_6m_bin", "syringe_reuse_6m_bin",
   "days_used_1m_3cat",
-  "num_sex_partners_3m", "condom_1m",
+  "num_sex_partners_3m", "condom_1m", "condom_intent_6m",
   "sexwork_3m", "bought_sex_3m", "sexual_abuse_6m"
 )
 
@@ -31,7 +34,8 @@ lca_vars_bin <- c(
 lca_vars_cat <- c(
   "days_used_1m_3cat",
   "num_sex_partners_3m",
-  "condom_1m"
+  "condom_1m",
+  "condom_intent_6m"
 )
 
 # ============================================================
@@ -177,7 +181,7 @@ sapply(imputed_datasets[[1]][lca_vars], function(x) sum(is.na(x)))  # should all
 # ======================================================
 # NUMBER OF IMPUTATIONS
 # ======================================================
-n_imp <- imp$
+n_imp <- imp$m
 
 # ======================================================
 # PREPARE COMPLETED DATASETS FOR LCA
@@ -420,120 +424,100 @@ cat("Perfect agreement rate:", round(agreement_rate * 100, 1), "%\n")
 table(final_class_assignment)
 
 # ---------------------------
-# Assign classes with descriptive labels
+# Create class descriptions
 # ---------------------------
 
-# ---------------------------
-# Binary variables: proportion of "1" per class
-# ---------------------------
-lca_bin_vars <- lca_vars_bin
+# Use the first imputed dataset as reference
+df_ref <- imputed_datasets[[1]]  
+df_ref$Class <- final_class_assignment  # Add final class assignment
 
-class_patterns_bin <- m2hepprep_prep_combined_lca %>%
-  group_by(class_factor_imputed) %>%
-  summarise(across(all_of(lca_bin_vars), ~ mean(as.numeric(.x) - 1, na.rm = TRUE)),
-            .groups = "drop")
+# Step 1: Compute counts and percentages
+freq_by_class <- lca_vars %>%
+  lapply(function(var) {
+    df_ref %>%
+      group_by(Class, !!sym(var)) %>%
+      summarise(Count = n(), .groups = "drop") %>%
+      rename(Level = !!sym(var)) %>%
+      mutate(Variable = var) %>%
+      select(Variable, Level, Class, Count)
+  }) %>%
+  bind_rows() %>%
+  group_by(Variable, Level) %>%
+  mutate(Total = sum(Count),
+         Percent = round(Count / Total * 100, 1)) %>%
+  ungroup()
 
+# Step 2: Pivot to wide format (classes as columns)
+wide_table <- freq_by_class %>%
+  select(Variable, Level, Class, Count, Percent) %>%
+  pivot_wider(
+    names_from = Class,
+    values_from = c(Count, Percent),
+    names_sep = "_Class"
+  ) %>%
+  arrange(Variable, Level)
 
+# Step 3: Save to Excel
+write.xlsx(wide_table, "data/class_patterns_categorical_wide.xlsx", rowNames = FALSE)
 
-tab_cat_by_class <- function(df, var) {
-  tab <- table(df$class_factor_imputed, df[[var]])
-  prop <- prop.table(tab, 1)
-
-  list(
-    counts = as.data.frame.matrix(tab),
-    proportions = round(as.data.frame.matrix(prop), 3)
-  )
-}
-
-days_used_tab <- tab_cat_by_class(
-  m2hepprep_prep_combined_lca,
-  "days_used_1m_3cat"
-)
-
-num_partners_tab <- tab_cat_by_class(
-  m2hepprep_prep_combined_lca,
-  "num_sex_partners_3m"
-)
-
-condom_tab <- tab_cat_by_class(
-  m2hepprep_prep_combined_lca,
-  "condom_1m"
-)
-
-days_used_tab$counts
-days_used_tab$proportions
-
-num_partners_tab$counts
-num_partners_tab$proportions
-
-condom_tab$counts
-condom_tab$proportions
+# Preview
+wide_table
 
 
 
+library(dplyr)
+library(tidyr)
+library(openxlsx)
 
-
-
-
-# ---------------------------
-# Save both tables to Excel
-# ---------------------------
-write_xlsx(
-  list(
-    "Binary_patterns" = class_patterns_bin,
-    "Categorical_patterns" = class_patterns_cat
-  ),
-  path = "data/class_patterns_all.xlsx"
-)
-
-cat("Class patterns saved successfully to 'data/class_patterns_all.xlsx'\n")
-
-
-# Categorical variables
-cat_vars <- c("days_used_1m_3cat", "num_sex_partners_3m", "condom_1m")
-
-
-
-
-# Mapping numeric codes to readable labels
-days_used_map <- c("0" = "<15 days", "1" = "15-24 days", "2" = "25+ days")
-num_sex_partners_map <- c("0" = "0 partners", "1" = "1 partner", "2" = "2+ partners")
-condom_map <- c("0" = "No sex past three months", "1" = "No sex past month", 
-                "2" = "Consistent condom use", "3" = "Inconsistent condom use")
-
-var_maps <- list(
-  days_used_1m_3cat = days_used_map,
-  num_sex_partners_3m = num_sex_partners_map,
-  condom_1m = condom_map
-)
-
-# Function to compute counts and proportions per class
-get_cat_counts <- function(df, var, mapping) {
-  df %>%
-    group_by(class_factor_imputed, !!sym(var)) %>%
-    summarise(n = n(), .groups = "drop") %>%
-    group_by(class_factor_imputed) %>%
-    mutate(prop = round(n / sum(n), 3)) %>%
-    ungroup() %>%
-    mutate(!!sym(var) := mapping[as.character(!!sym(var))])
-}
-
-# Apply to all categorical variables
-cat_summaries <- lapply(names(var_maps), function(v) {
-  get_cat_counts(m2hepprep_prep_combined_lca, v, var_maps[[v]])
+# Step 1: Attach final class assignments to all imputed datasets
+imputed_with_class <- lapply(imputed_datasets, function(df) {
+  df$Class <- final_class_assignment
+  df
 })
 
-names(cat_summaries) <- names(var_maps)
+# Step 2: Compute counts for each variable level by class per dataset
+freq_list <- lapply(imputed_with_class, function(df) {
+  lapply(lca_vars, function(var) {
+    table(
+      Class = factor(df$Class, levels = sort(unique(final_class_assignment))),
+      Value = factor(df[[var]], levels = sort(unique(unlist(lapply(imputed_datasets, `[[`, var)))))
+    )
+  })
+})
 
-# Save to Excel with separate sheets
-write_xlsx(cat_summaries, path = "data/class_patterns_categorical_counts.xlsx")
+# Step 3: Sum counts across all imputed datasets
+pooled_freq <- setNames(lapply(lca_vars, function(var) {
+  Reduce(`+`, lapply(freq_list, function(x) x[[var]]))
+}), lca_vars)
 
-cat("Categorical counts and proportions saved successfully to 'data/class_patterns_categorical_counts.xlsx'\n")
+# Step 4: Convert to long format and compute percentages within each class
+pooled_df <- lapply(names(pooled_freq), function(var) {
+  tbl <- pooled_freq[[var]]
+  df <- as.data.frame(as.table(tbl))
+  colnames(df) <- c("Class", "Level", "Count")
+  df$Variable <- var
+  df <- df %>%
+    group_by(Variable, Class) %>%
+    mutate(Percent = round(Count / sum(Count) * 100, 1)) %>%
+    ungroup() %>%
+    select(Variable, Level, Class, Count, Percent)
+  df
+}) %>% bind_rows()
 
+# Step 5: Pivot to wide format for readability
+wide_table <- pooled_df %>%
+  pivot_wider(
+    names_from = Class,
+    values_from = c(Count, Percent),
+    names_sep = "_Class"
+  ) %>%
+  arrange(Variable, Level)
 
+# Step 6: Save to Excel
+write.xlsx(wide_table, "class_patterns_categorical_pooled.xlsx", rowNames = FALSE)
 
-
-
+# Preview
+wide_table
 
 
 
@@ -550,10 +534,10 @@ m2hepprep_prep_combined_lca$class_factor_imputed <- factor(
   final_class_assignment,
   levels = 1:4,
   labels = c(
-    "Very High Injecting / Low Sexual Risk",      # Class 1
-    "Moderate Injecting / High Sexual Risk", # Class 2
+    "High Injecting / High Sexual Risk",      # Class 1
+    "High Injecting / Low Sexual Risk", # Class 2
     "Low Overall Risk",                      # Class 3
-    "High Injecting / High Sexual Risk"      # Class 4
+    "Low Injecting / High Sexual Risk"      # Class 4
   )
 )
 
@@ -569,6 +553,11 @@ print(table(m2hepprep_prep_combined_lca$class_factor_imputed))
 
 library(sandwich)
 library(lmtest)
+
+# Set Class 2 as the reference category
+m2hepprep_prep_combined_lca$class_factor_imputed <-
+  relevel(m2hepprep_prep_combined_lca$class_factor_imputed,
+          ref = "High Injecting / Low Sexual Risk")
 
 # Unadjusted model
 mod_class_imp <- glm(
