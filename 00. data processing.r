@@ -162,11 +162,11 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     ),
     sdem_slep6m_binary = factor(
       case_when(
-        sdem_slep6m %in% c("Homeless", "In a shelter") ~ "1",
+        sdem_slep6m %in% c("Homeless", "In a shelter","Transitional") ~ "1",
         sdem_slep6m %in% c("Drug treatment facility", "HIV/AIDS housing/group home", "Other", 
                            "Other residential facility or institution", "Owner", 
-                           "Permanent single-room occupancy", "Rent", "Staying with friends/family", 
-                           "Transitional") ~ "0",
+                           "Permanent single-room occupancy", "Rent", "Staying with friends/family"
+                           ) ~ "0",
         TRUE ~ NA_character_
       ),
       levels = c("0", "1")
@@ -436,6 +436,27 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
 
 # sexual risks
 
+# no sex past month and three months
+m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
+  mutate(
+    any_sex_3m = case_when(
+      srb_3m == "Yes" | srb_3m_m == "Yes" | srb_3m_f == "Yes" | srb_3m_prst == "Yes" ~ 1,
+      srb_3m == "No"  | srb_3m_m == "No"  | srb_3m_f == "No" | srb_3m_prst == "No"  ~ 0,
+      TRUE ~ NA_real_
+    ),
+    any_sex_1m = case_when(
+      srb_1m_f == "Yes" | srb_1m_m == "Yes" ~ 1,
+      srb_1m_f == "No"  | srb_1m_m == "No"  ~ 0,
+      TRUE ~ NA_real_
+    )
+  )
+
+table(m2hepprep_prep_combined$any_sex_3m, useNA = "ifany")
+table(m2hepprep_prep_combined$any_sex_1m, useNA = "ifany")
+tab <- with(m2hepprep_prep_combined,
+            table(any_sex_1m, any_sex_3m, useNA = "ifany"))
+addmargins(tab)  
+
 # set empty strings to NA
 cols_to_na <- c(
   "srb_3m_prst", "srb_prst04", "srb_1m_f_hiv", "sdem_sex", "srb_3m", "srb_1m_fc_hiv", "srb_3m_sxp",
@@ -446,33 +467,40 @@ cols_to_na <- c(
   "srb_3m_m_sxp_cidu", "srb_3m_m_sxp_mcidu"
 )
 
+# condom questions to binary
 m2hepprep_prep_combined[cols_to_na] <- lapply(
   m2hepprep_prep_combined[cols_to_na],
   function(x) ifelse(x == "", NA, x)
 )
 
-# derive condom_1m
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
   mutate(across(all_of(condom_vars),
                 ~case_when(
                   . %in% c("Never", "Rarely", "Some of the time") ~ 0,
-                  . %in% c("Sometimes", "Occasionally") ~ 1,
-                  . %in% c("Often", "Most of the time") ~ 2,
-                  . %in% c("Always", "Very often") ~ 3,
+                  . %in% c("Always", "Very often") ~ 1,
                   TRUE ~ NA_real_
                 )))
 
+# binary indicators of condom use
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
   rowwise() %>%
   mutate(
-    any_inconsistent = any(c_across(all_of(condom_vars)) %in% c(0,1,2), na.rm = TRUE),
-    any_consistent   = any(c_across(all_of(condom_vars)) %in% c(3), na.rm = TRUE),
+    any_inconsistent = any(c_across(all_of(condom_vars)) %in% c(0), na.rm = TRUE),
+    any_consistent   = any(c_across(all_of(condom_vars)) %in% c(1), na.rm = TRUE)
+  )
+
+table(m2hepprep_prep_combined$any_inconsistent, useNA = "ifany")
+table(m2hepprep_prep_combined$any_consistent, useNA = "ifany")
+
+# derive condom_1m
+m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
+    mutate(
     condom_1m = factor(
       case_when(
-        srb_1m_m == "No" | srb_1m_f == "No" ~ 0,
-        any_inconsistent ~ 3,
-        any_consistent ~ 2,
-        srb_3m != "Yes" ~ 1,
+        any_sex_1m == 0 ~ 0,
+        any_inconsistent == 1 ~ 3,
+        any_consistent == 1 ~ 2,
+        any_sex_3m == 0 ~ 1,
         TRUE ~ NA_real_
       ),
       levels = c(0,1,2,3),
@@ -483,8 +511,9 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
         "Never / Rarely / Some of the time"
       )
     )
-  ) %>%
-  ungroup()
+  )
+
+table(m2hepprep_prep_combined$condom_1m, useNA = "ifany")
 
 ## other sexual risk variables
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
@@ -492,14 +521,8 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     sexwork_3m = factor(
       case_when(
         srb_3m_prst == "Yes" ~ "1",
-        TRUE ~ "0"
-      ),
-      levels = c("0", "1")
-    ),
-    bought_sex_3m = factor(
-      case_when(
-        srb_prst04 == "Yes" ~ "1",
-        TRUE ~ "0"
+        any_sex_3m == 0      ~ "0",
+        TRUE                 ~ NA_character_
       ),
       levels = c("0", "1")
     ),
@@ -508,7 +531,8 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
         as.numeric(srb_3m_sxp) == 0 ~ "0",
         as.numeric(srb_3m_sxp) == 1 ~ "1",
         as.numeric(srb_3m_sxp) > 1 ~ "2",
-        TRUE ~ "0"
+        any_sex_3m == 0      ~ "0",
+        TRUE                 ~ NA_character_
       ),
       levels = c("0", "1", "2")
     ),
@@ -529,6 +553,21 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       levels = c("0", "1", "2")
     )
   )
+
+# make sure condom use and buying sex are consistent
+tab <- with(m2hepprep_prep_combined,
+            table(condom_1m, sexwork_3m, useNA = "ifany"))
+
+table(m2hepprep_prep_combined$condom_1m, useNA = "ifany")
+table(m2hepprep_prep_combined$sexwork_3m, useNA = "ifany")
+addmargins(tab)  
+
+
+
+
+
+
+
 
 # save data
 write.csv(m2hepprep_prep_combined, "data/m2hepprep_combined.csv", row.names = FALSE)
