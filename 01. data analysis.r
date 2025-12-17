@@ -1,40 +1,10 @@
 # ============================================================
-# LOAD LIBRARIES
+# LOAD LIBRARIES and data
 # ============================================================
 pacman::p_load(dplyr, mice, writexl, readxl, poLCA, ggplot2, clue, sandwich, lmtest)
 
 # set working directory
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/Montreal paper/")
-
-# ------------------------------------------------------------
-# START LOGGING (captures console output, warnings, messages, errors)
-# ------------------------------------------------------------
-
-# Create log file
-log_file <- file.path("logs", paste0("analysis_log_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".txt"))
-dir.create("logs", showWarnings = FALSE)
-
-# Redirect both output and messages to log
-sink(log_file, split = TRUE)
-sink(log_file, type = "message", append = TRUE)
-
-cat("Logging started at", Sys.time(), "\n\n")
-
-# Print objects explicitly if you want
-print(ls())
-print(sessionInfo())
-
-log_safe <- function(expr) {
-  tryCatch(
-    expr,
-    error = function(e) {
-      message("ERROR: ", conditionMessage(e))
-      stop(e)
-    }
-  )
-}
-
-log_safe({
 
 # Source the data processing script with echo = TRUE to print all lines
 source("code/00. data processing.R", local = TRUE, echo = TRUE)
@@ -609,27 +579,3 @@ write_xlsx(list(
 ), "data/poisson_class_results_imputed.xlsx")
 
 cat("\nAnalysis completed using multiple imputation!\n")
-cat("Results have been saved successfully to: data/poisson_class_results_imputed.xlsx\n")
-
-  # Example of printing Poisson results
-  cat("\nPoisson regression results (unadjusted):\n")
-  print(poisson_class_results_imp)
-
-  cat("\nPoisson regression results (adjusted):\n")
-  print(poisson_class_adjusted_results_imp)
-
-  cat("\nClass distribution (should match pooled assignments):\n")
-  print(table(m2hepprep_prep_combined_lca$class_factor_imputed))
-
-  cat("\nAnalysis completed successfully!\n")
-})
-
-# ============================================================
-# CLOSE LOGGING
-# ============================================================
-cat("\n====================================================\n")
-cat("LOG END: ", Sys.time(), "\n")
-cat("====================================================\n")
-
-sink(type = "message")
-sink()
