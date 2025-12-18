@@ -522,6 +522,7 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       case_when(
         srb_3m_prst == "Yes" ~ "1",
         any_sex_3m == 0      ~ "0",
+        cla_16a == "No"      ~ "0",
         TRUE                 ~ NA_character_
       ),
       levels = c("0", "1")
@@ -539,7 +540,8 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     sex_work_ever = factor(
       case_when(
         cla_16a == "Yes" ~ "1",
-        TRUE ~ "0"
+        cla_16a == "No"  ~ "0",
+        TRUE                 ~ NA_character_
       ),
       levels = c("0", "1")
     ),
@@ -548,7 +550,7 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
         cdu_17 == "Disagree" | cdu_17 == "Strongly Disagree" ~ "0",
         cdu_17 == "Neither agree nor disagree" ~ "1",
         cdu_17 == "Agree" | cdu_17 == "Strongly Agree" ~ "2",
-        TRUE ~ NA_character_  # catches any unexpected values
+        TRUE                 ~ NA_character_ 
       ),
       levels = c("0", "1", "2")
     )
@@ -560,14 +562,8 @@ tab <- with(m2hepprep_prep_combined,
 
 table(m2hepprep_prep_combined$condom_1m, useNA = "ifany")
 table(m2hepprep_prep_combined$sexwork_3m, useNA = "ifany")
+table(m2hepprep_prep_combined$sex_work_ever, useNA = "ifany")
 addmargins(tab)  
-
-
-
-
-
-
-
 
 # save data
 write.csv(m2hepprep_prep_combined, "data/m2hepprep_combined.csv", row.names = FALSE)

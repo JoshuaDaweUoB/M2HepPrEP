@@ -140,20 +140,34 @@ imputed_datasets_mice <- lapply(seq_len(imp$m), function(i) {
 # ============================================================
 # PREPARE DATASETS FOR poLCA (factor → integer)
 # ============================================================
-prepare_for_poLCA <- function(df, vars_bin, vars_cat) {
-  df <- df %>%
-    mutate(
-      # binary vars: ensure factor then integer {1,2}
-      across(all_of(vars_bin), ~ as.integer(factor(.x, levels = c(0, 1)))),
-      # categorical vars: factor then integer {1,...,K}
-      across(all_of(vars_cat), ~ as.integer(factor(.x)))
-    )
+prepare_for_poLCA <- function(df, vars) {
+  df[vars] <- lapply(df[vars], function(x) {
+    
+    # Ensure factor
+    x <- factor(x)
+    
+    # Replace NA with modal category
+    if (any(is.na(x))) {
+      tbl <- table(x)
+      if (length(tbl) > 0) {
+        mode_val <- names(which.max(tbl))
+        x[is.na(x)] <- mode_val
+      }
+    }
+    
+    # Convert to consecutive integers starting at 1
+    as.integer(x)
+  })
+  
   df
 }
 
-imputed_datasets_lca <- lapply(imputed_datasets_mice, function(df) {
-  prepare_for_poLCA(df, lca_vars_bin, lca_vars_cat)
+imputed_datasets_lca <- lapply(seq_len(imp$m), function(i) {
+  df <- complete(imp, i)
+  prepare_for_poLCA(df, lca_vars)
 })
+
+print(lapply(imputed_datasets_lca[[1]][lca_vars], unique))
 
 # ============================================================
 # SANITY CHECKS
@@ -172,7 +186,61 @@ print(lapply(imputed_datasets_lca[[1]][lca_vars], unique))
 
 # Confirm no missing data
 stopifnot(
-  all(sapply(imputed_datasets_lca[[1]][lca_vars], function(x) sum(is.na(x)) == 0))
+  all(sapply(imputed_datasets_lca[[1]][lca_vars],
+             function(x) sum(is.na(x)) == 0))
+)
+
+# ============================================================
+# SAVE DESCRIPTIVES OF LCA VARIABLES
+# ============================================================
+desc <- bind_rows(lapply(lca_vars, function(v) {
+  tb <- as.data.frame(table(m2hepprep_prep_combined[[v]], useNA = "ifany"), stringsAsFactors = FALSE)
+  names(tb) <- c("Level", "n")
+  tb$Variable <- v
+  tb %>%
+    select(Variable, Level, n) %>%
+    group_by(Variable) %>%
+    mutate(pct = round(100 * n / sum(n), 1)) %>%
+    ungroup()
+}))
+
+# Save to Excel
+writexl::write_xlsx(list(Descriptives = desc), "data/lca_descriptives.xlsx")
+
+desc_mi_all <- bind_rows(lapply(seq_len(imp$m), function(i) {
+  df <- imputed_datasets_mice[[i]]
+  bind_rows(lapply(lca_vars, function(v) {
+    tb <- as.data.frame(table(df[[v]], useNA = "ifany"), stringsAsFactors = FALSE)
+    names(tb) <- c("Level", "n")
+    tb$Variable <- v
+    tb %>%
+      select(Variable, Level, n) %>%
+      group_by(Variable) %>%
+      mutate(pct = round(100 * n / sum(n), 1),
+             Imputation = i) %>%
+      ungroup()
+  }))
+}))
+
+# Pooled (across imputations): mean % with SD/min/max (per Variable x Level)
+desc_mi_summary <- desc_mi_all %>%
+  group_by(Variable, Level) %>%
+  summarise(
+    pct_mean = round(mean(pct, na.rm = TRUE), 1),
+    pct_sd   = round(sd(pct, na.rm = TRUE), 1),
+    pct_min  = min(pct, na.rm = TRUE),
+    pct_max  = max(pct, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Save both raw and MI summary to one workbook
+writexl::write_xlsx(
+  list(
+    Descriptives_raw = desc,
+    Descriptives_MI  = desc_mi_summary
+    # , Descriptives_MI_by_imp = desc_mi_wide  # optional sheet
+  ),
+  "data/lca_descriptives.xlsx"
 )
 
 # ==========================================================================
@@ -349,8 +417,6 @@ for (i in seq_len(n_imp)) {
 # ALIGN CLASS LABELS ACROSS IMPUTATIONS
 # ==============================================================================
 
-library(clue)
-
 class_assignments <- matrix(NA, nrow = n_participants, ncol = n_imp)
 
 # Reference: first imputation
@@ -469,7 +535,7 @@ wide_table <- freq_by_class %>%
   arrange(Variable, Level_Label)
 
 # Save to Excel
-write.xlsx(wide_table, "data/class_patterns_categorical_wide.xlsx", rowNames = FALSE)
+writexl::write_xlsx(wide_table, "data/class_patterns_categorical_wide.xlsx")
 
 # Assign classes
 m2hepprep_prep_combined_lca <- m2hepprep_prep_combined
@@ -480,8 +546,8 @@ m2hepprep_prep_combined_lca$class_factor_imputed <- factor(
   levels = 1:4,
   labels = c(
     "High Injecting / High Sexual Risk",      # Class 1
-    "High Injecting / High Sexual Risk", # Class 2
-    "Low Overall Risk",                      # Class 3
+    "Low Overall Risk",                      # Class 2
+    "High Injecting / Low Sexual Risk", # Class 3
     "Low Injecting / High Sexual Risk"      # Class 4
   )
 )
@@ -496,7 +562,7 @@ print(table(m2hepprep_prep_combined_lca$class_factor_imputed))
 # POISSON REGRESSION WITH IMPUTED CLASS ASSIGNMENTS
 # ==============================================================================
 
-# Set Class 2 as the reference category
+# Set Class 3 as the reference category
 m2hepprep_prep_combined_lca$class_factor_imputed <-
   relevel(m2hepprep_prep_combined_lca$class_factor_imputed,
           ref = "High Injecting / Low Sexual Risk")
