@@ -60,7 +60,7 @@ baseline_vars <- c(
   "srb_3m_sxp","srb_1m_m_hiv","srb_1m_f_hiv",
   "srb_1m_f_drg_cc","srb_1m_f_drg_hro","srb_1m_f_drg_main",
   "srb_1m_f_drg_aph","srb_1m_f_drg_psy",
-  "cdu_17","cdu_15",
+  "cdu_17","cdu_15", "ath_6",
   paste0("sub_6m", 1:27),
   "sdu_wrk","sdu_wrk_6m_frq",
   "srb_3m","idu_6mplc2___3",
@@ -309,6 +309,36 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
         TRUE ~ nms_trp
       )
     ),
+      hiv_risk_perception_2cat = factor(
+        case_when(
+          ath_6 == "Very unlikely"      ~ "Unlikely/Very Unlikely",
+          ath_6 == "Unlikely"           ~ "Unlikely/Very Unlikely",
+          ath_6 == "Moderately likely"  ~ "Likely/Very likely",
+          ath_6 == "Likely"             ~ "Likely/Very likely",
+          ath_6 == "Very likely"        ~ "Likely/Very likely",
+          TRUE                          ~ NA_character_
+        )
+      ),
+      hiv_risk_perception_3cat = factor(
+      case_when(
+        ath_6 == "Very unlikely"        ~ "Unlikely/Very Unlikely",
+        ath_6 == "Unlikely"             ~ "Unlikely/Very Unlikely",
+        ath_6 == "Moderately likely"    ~ "Moderately likely",
+        ath_6 == "Likely"               ~ "Likely/Very likely",
+        ath_6 == "Very likely"          ~ "Likely/Very likely",
+        TRUE                            ~ NA_character_
+        )
+      ),
+    hiv_risk_perception_5cat = factor(
+      case_when(
+        ath_6 == "Very unlikely"        ~ "Very unlikely",
+        ath_6 == "Unlikely"             ~ "Unlikely",
+        ath_6 == "Moderately likely"    ~ "Moderately likely",
+        ath_6 == "Likely"               ~ "Likely",
+        ath_6 == "Very likely"          ~ "Very likely",
+        TRUE                            ~ NA_character_
+        )
+      ),
     msm_ever = factor(
       case_when(
         dem_gender == "Man" & srb_1m_m == "Yes" ~ "1",
@@ -353,13 +383,13 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     ),
     nsp_use = factor(
       case_when(
-        sdem_sev == "Syringe access program (SAP)" | sdem_sev == "Both" ~ "1",
-        sdem_sev == "None" | sdem_sev == "Opioid agonist therapy (OAT) clinic" ~ "0",
+        sdem_sev %in% c("Syringe access program (SAP)", "Both") ~ "1",
+        sdem_sev %in% c("None", "Opioid agonist therapy (OAT) clinic") ~ "0",
         TRUE ~ NA_character_
       ),
       levels = c("0", "1")
     )
-  )
+  ) 
 
 # injecting risks
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
@@ -564,6 +594,10 @@ table(m2hepprep_prep_combined$condom_1m, useNA = "ifany")
 table(m2hepprep_prep_combined$sexwork_3m, useNA = "ifany")
 table(m2hepprep_prep_combined$sex_work_ever, useNA = "ifany")
 addmargins(tab)  
+
+table(m2hepprep_prep_combined$hiv_risk_perception_2cat, useNA = "ifany")
+table(m2hepprep_prep_combined$hiv_risk_perception_3cat, useNA = "ifany")
+table(m2hepprep_prep_combined$hiv_risk_perception_5cat, useNA = "ifany")
 
 # save data
 write.csv(m2hepprep_prep_combined, "data/m2hepprep_combined.csv", row.names = FALSE)
