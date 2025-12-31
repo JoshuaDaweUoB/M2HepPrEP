@@ -18,29 +18,21 @@ with(m2hepprep_prep_combined, table(condom_1m, num_sex_partners_3m))
 # Define LCA variables
 # ============================================================
 lca_vars <- c(
-  # "inject_meth_6m", "inject_cocaine_6m", "inject_fent_6m",
   "syringe_share_6m_bin", "syringe_cooker_6m_bin",
   "syringe_loan_6m_bin", "syringe_reuse_6m_bin",
-  # "days_used_1m_3cat", no longer used
   "num_sex_partners_3m", "condom_1m", 
-  # "condom_intent_6m", no longer used
   "sexwork_3m"
-  # , "sexual_abuse_6m" no longer used
 )
 
 lca_vars_bin <- c(
-  # "inject_meth_6m", "inject_cocaine_6m", "inject_fent_6m",
   "syringe_share_6m_bin", "syringe_cooker_6m_bin",
   "syringe_loan_6m_bin", "syringe_reuse_6m_bin",
   "sexwork_3m"
-  #, "sexual_abuse_6m" no longer used
 )
 
 lca_vars_cat <- c(
-  # "days_used_1m_3cat", no longer used
   "num_sex_partners_3m",
   "condom_1m"
-  #, "condom_intent_6m" no longer used
 )
 
 # ============================================================
@@ -148,7 +140,7 @@ imp <- mice(
 )
 
 # ============================================================
-# Define factor levels ONCE
+# Define factor levels
 # ============================================================
 
 levels_condom <- c(
@@ -165,13 +157,12 @@ levels_nsp <- c(
 )
 
 # ============================================================
-# Manually code survey skip logic (post-imputation)
+# Manually code survey skip logic
 # ============================================================
 
 imputed_datasets_mice <- lapply(seq_len(imp$m), function(i) {
   df <- complete(imp, i)
 
-  # Find any rows with NA in these two variables
   na_rows <- which(is.na(df$condom_1m) | is.na(df$num_sex_partners_3m))
 
   if (length(na_rows) > 0) {
@@ -179,11 +170,11 @@ imputed_datasets_mice <- lapply(seq_len(imp$m), function(i) {
     df$num_sex_partners_3m[na_rows] <- "No sex past 3 months"
   }
 
-  # Force consistency based on skip logic
+  # recode based on skip logic
   df$condom_1m[df$num_sex_partners_3m == "No sex past 3 months"] <- "No sex past 3 months"
   df$num_sex_partners_3m[df$condom_1m == "No sex past 3 months"] <- "No sex past 3 months"
 
-  # Convert to ordered factors
+  # convert to ordered factors
   df$condom_1m <- factor(df$condom_1m, levels = levels_condom, ordered = TRUE)
   df$num_sex_partners_3m <- factor(df$num_sex_partners_3m, levels = levels_nsp, ordered = TRUE)
 
@@ -256,7 +247,7 @@ desc_mi_all <- bind_rows(lapply(seq_len(imp$m), function(i) {
   }))
 }))
 
-# Pooled (across imputations): mean % with SD/min/max (per Variable x Level)
+# pooled mean % with SD/min/max
 desc_mi_summary <- desc_mi_all %>%
   group_by(Variable, Level) %>%
   summarise(
@@ -267,7 +258,7 @@ desc_mi_summary <- desc_mi_all %>%
     .groups = "drop"
   )
 
-# Save both raw and MI summary to one workbook
+# save
 writexl::write_xlsx(
   list(
     Descriptives_MI_by_Imputation = desc_mi_all,
@@ -360,7 +351,7 @@ for (imp_idx in seq_len(n_imp)) {
 # Combine fit statistics across imputations
 # ======================================================
 
-# Combine fit statistics across imputations
+# combine fit statistics across imputations
 all_fit_stats <- do.call(rbind, lapply(seq_len(n_imp), function(i) {
   cbind(Imputation = i, fit_stats_all[[i]])
 }))
@@ -466,12 +457,12 @@ for (i in seq_len(n_imp)) {
 # ==============================================================================
 # Class labels across imputations
 # ==============================================================================
-# Identify rows with any NA in LCA variables, across all imputations
+
+# rows with any NA in LCA variables, across all imputations
 lapply(seq_along(imputed_datasets_mice), function(i) {
   df <- imputed_datasets_mice[[i]]
   na_rows <- which(rowSums(is.na(df[lca_vars])) > 0)
   if(length(na_rows) > 0) {
-    # Show which variable(s) are NA in those rows
     na_vars <- apply(df[na_rows, lca_vars], 1, function(x) names(which(is.na(x))))
     list(imputation = i, rows = na_rows, vars = na_vars)
   } else {
@@ -481,7 +472,7 @@ lapply(seq_along(imputed_datasets_mice), function(i) {
 
 class_assignments <- matrix(NA, nrow = n_participants, ncol = n_imp)
 
-# Reference: first imputation
+# first imputation
 ref_classes <- lca_imputed_results[[1]]$predclass
 class_assignments[, 1] <- ref_classes
 
@@ -504,7 +495,7 @@ final_class_assignment <- apply(class_assignments, 1, function(x) {
   as.numeric(names(which.max(table(x))))
 })
 
-# Agreement
+# agreement rate
 agreement_rate <- mean(apply(class_assignments, 1, function(x)
   length(unique(x)) == 1
 ))
@@ -528,15 +519,9 @@ lca_vars_selected <- c(
   "syringe_cooker_6m_bin",
   "syringe_loan_6m_bin",
   "syringe_reuse_6m_bin",
- # "days_used_1m_3cat",
- # "inject_meth_6m",
- # "inject_cocaine_6m",
- # "inject_fent_6m",
   "sexwork_3m",
- # "sexual_abuse_6m",
   "num_sex_partners_3m",
   "condom_1m"
-  # , "condom_intent_6m"
 )
 
 # LCA vars as factors
@@ -550,28 +535,17 @@ df_ref <- df_ref %>%
     syringe_cooker_6m_bin = recode(syringe_cooker_6m_bin, "1" = "No", "2" = "Yes", .default = NA_character_),
     syringe_loan_6m_bin   = recode(syringe_loan_6m_bin, "1" = "No", "2" = "Yes", .default = NA_character_),
     syringe_reuse_6m_bin  = recode(syringe_reuse_6m_bin, "1" = "No", "2" = "Yes", .default = NA_character_),
-    # days_used_1m_3cat     = recode(days_used_1m_3cat, "1" = "0–14 days", "2" = "15–24 days", "3" = "25+ days", .default = NA_character_),
-    # inject_fent_6m        = recode(inject_fent_6m, "1" = "No", "2" = "Yes", .default = NA_character_),
-    # inject_meth_6m        = recode(inject_meth_6m, "1" = "No", "2" = "Yes", .default = NA_character_),
-    # inject_cocaine_6m     = recode(inject_cocaine_6m, "1" = "No", "2" = "Yes", .default = NA_character_),
     sexwork_3m            = recode(sexwork_3m, "1" = "No", "2" = "Yes", .default = NA_character_),
-    # sexual_abuse_6m       = recode(sexual_abuse_6m, "1" = "No", "2" = "Yes", .default = NA_character_),
     num_sex_partners_3m   = recode(num_sex_partners_3m, "1" = "None", "2" = "One", "3" = "Two or more", .default = NA_character_),
     condom_1m             = recode(condom_1m,
                                    "1" = "No sex past month",
                                    "2" = "No sex past 3 months",
                                    "3" = "Very often / Always",
                                    "4" = "Never / Rarely / Some of the time",
-                                   .default = NA_character_) #,
-    # condom_intent_6m      = recode(condom_intent_6m,
-     #                              "1" = "Disagree / Strongly Disagree",
-     #                              "2" = "Neither agree nor disagree",
-     #                              "3" = "Agree / Strongly Agree",
-     #                              .default = NA_character_)
+                                   .default = NA_character_)
   )
 
-# Compute counts and percentages per class
-
+# counts and percentages per class
 freq_by_class <- lca_vars_selected %>%
   lapply(function(var) {
     df_ref %>%
@@ -589,7 +563,7 @@ freq_by_class <- lca_vars_selected %>%
   ) %>%
   dplyr::ungroup()
 
-# Pivot so each row is a variable + level, with columns for each class
+# reshape so variables are rows
 wide_table <- freq_by_class %>%
   tidyr::pivot_wider(
     id_cols = c(Variable, Level_Label),
@@ -599,7 +573,7 @@ wide_table <- freq_by_class %>%
   ) %>%
   dplyr::arrange(Variable, Level_Label)
 
-# Save to Excel
+# save
 writexl::write_xlsx(wide_table, "data/class_patterns_categorical_wide.xlsx")
 
 # ============================================================
@@ -607,9 +581,7 @@ writexl::write_xlsx(wide_table, "data/class_patterns_categorical_wide.xlsx")
 # ============================================================
 table(df_ref$sdem_reside, useNA = "ifany")
 
-# ------------------------------------------------------------------
-# Reference dataset
-# ------------------------------------------------------------------
+# reference dataset
 df_ref <- imputed_datasets_mice[[1]]
 df_ref$Class <- final_class_assignment
 
@@ -622,16 +594,10 @@ df_ref <- df_ref %>%
     )
   )
 
-# Auxiliary variables (exclude sdem_reside itself)
+# auxiliary variables
 aux_vars_selected <- setdiff(auxiliary_vars, "sdem_reside")
 
-# Safety checks
-stopifnot(
-  all(aux_vars_selected %in% names(df_ref)),
-  "sdem_reside" %in% names(df_ref)
-)
-
-# Ensure auxiliary vars are factors
+# make sure auxiliary vars are factors
 df_ref <- df_ref %>%
   dplyr::mutate(dplyr::across(dplyr::all_of(aux_vars_selected), as.factor))
 
@@ -707,7 +673,7 @@ levels_overall_by_city_aux <- overall_aux %>%
   ) %>%
   dplyr::arrange(Variable, Level_Label)
 
-# Ensure city columns exist
+# make sure city columns exist
 for (nm in c(
   "Count_Montreal", "Percent_Montreal",
   "Count_Miami",    "Percent_Miami"
@@ -749,10 +715,7 @@ levels_overall_by_city_aux <- levels_overall_by_city_aux %>%
     dplyr::everything()
   )
 
-# ============================================================
-# Save to Excel
-# ============================================================
-
+# save
 writexl::write_xlsx(
   list(
     Auxiliary_Overall_ByCity = levels_overall_by_city_aux
@@ -760,7 +723,7 @@ writexl::write_xlsx(
   "data/auxiliary_overall_by_city.xlsx"
 )
 
-# Assign classes
+# assign classes
 m2hepprep_prep_combined_lca <- m2hepprep_prep_combined
 m2hepprep_prep_combined_lca$class_imputed <- final_class_assignment
 
@@ -775,37 +738,29 @@ m2hepprep_prep_combined_lca$class_factor_imputed <- factor(
   )
 )
 
-# 1) Choose the level per variable to plot (edit labels if yours differ)
+# levels for plotting
 target_levels <- tibble::tribble(
   ~Variable,                 ~Level_Label,                                          ~Domain,           ~Indicator,
- # "inject_meth_6m",          "Yes",                                                "Injecting",       "Injected meth (6m)",
- # "inject_cocaine_6m",       "Yes",                                                "Injecting",       "Injected cocaine (6m)",
- # "inject_fent_6m",          "Yes",                                                "Injecting",       "Injected fentanyl (6m)",
- # "days_used_1m_3cat",       "25+ days",                                           "Injecting",       "Used drugs 25+ days (1m)",
   "syringe_share_6m_bin",    "Yes",                                                "Injecting",       "Shared syringe (6m)",
   "syringe_cooker_6m_bin",   "Yes",                                                "Injecting",       "Shared cooker (6m)",
   "syringe_loan_6m_bin",     "Yes",                                                "Injecting",       "Loaned syringe (6m)",
   "syringe_reuse_6m_bin",    "Yes",                                                "Injecting",       "Reused syringe (6m)",
- # condom_intent_6m",        "Agree / Strongly Agree",                             "Injecting",       "Intend to use condoms (6m)",
   "sexwork_3m",              "Yes",                                                "Sexual Risk",     "Sex work (3m)",
   "num_sex_partners_3m",     "Two or more",                                        "Sexual Risk",     "≥2 partners (3m)",
   "condom_1m",               "Never / Rarely / Some of the time",                  "Sexual Risk",     "Inconsistent condom use (1m)",
- # "sexual_abuse_6m",         "Yes",                                                "Sexual Risk",       "Sexual abuse (6m)"
 ) %>%
   mutate(Order = row_number())
 
-# 2) Build plotting data: per-class probability for chosen level
-#    Uses your pooled class assignment `df_ref$Class` and recoded labels in freq_by_class
-# Class labels and index
+# per-class probability for chosen level of rows
 class_labels <- levels(m2hepprep_prep_combined_lca$class_factor_imputed)
 classes_idx  <- seq_along(class_labels)
 
-# Build a full grid for all classes × selected indicators
+# full grid for all classes × selected indicators
 grid <- target_levels %>%
   dplyr::select(Variable, Level_Label, Domain, Indicator, Order) %>%
   tidyr::crossing(Class = classes_idx)
 
-# Join frequencies and fill missing with zeros
+# frequencies and fill missing with zeros
 plot_df <- grid %>%
   dplyr::left_join(
     freq_by_class %>%
@@ -820,19 +775,19 @@ plot_df <- grid %>%
   ) %>%
   dplyr::arrange(x, ClassLabel)
 
-# 3) Domain separators and headers
+# separators and headers
 domain_spans <- target_levels %>%
   group_by(Domain) %>%
   summarise(start = min(Order), end = max(Order), mid = (start + end) / 2, .groups = "drop")
 
 domain_boundaries <- domain_spans$end[-nrow(domain_spans)] + 0.5
 
-# 4) Styling for up to 5 classes (auto-trims to your k_final)
+# auto-trim to your k_final
 n_classes <- length(class_labels)
 color_vals    <- c("#000000", "#2E8B57", "#7F7F7F", "#B0B0B0", "#1F77B4")[seq_len(n_classes)]
 linetype_vals <- c("solid",  "solid",   "dashed",  "dotted",  "dotdash")[seq_len(n_classes)]
 
-# 5) Plot
+# ggplot baby
 p <- ggplot(plot_df, aes(x = x, y = prob, group = ClassLabel, color = ClassLabel, linetype = ClassLabel)) +
   geom_line(linewidth = 1.2) +
   geom_point(size = 2) +
@@ -868,9 +823,9 @@ p <- p + theme(
   legend.title = element_text(colour = "black"),
   legend.text  = element_text(colour = "black")
 )
-# Add a horizontal grey line at 0
 p <- p + ggplot2::geom_hline(yintercept = 0, colour = "grey70", linewidth = 0.6)
-# Save wide PNG
+
+# save
 ggplot2::ggsave(
   filename = "figures/lca_indicator_probabilities_wide.png",
   plot = p,
@@ -888,13 +843,13 @@ print(table(m2hepprep_prep_combined_lca$class_factor_imputed))
 write.csv(m2hepprep_prep_combined_lca, "data/m2hepprep_combined_lca.csv", row.names = FALSE)
 
 # ==============================================================================
-# POISSON REGRESSION WITH IMPUTED CLASS ASSIGNMENTS
+# Poisson regression with imputed class assignments
 # ==============================================================================
 
 # load data
 m2hepprep_prep_combined_lca <- read.csv("data/m2hepprep_combined_lca.csv")
 
-# Set high injecting low sexual risk as the reference category
+# high injecting low sexual risk as the reference category
 m2hepprep_prep_combined_lca$class_factor_imputed <-
   factor(
     m2hepprep_prep_combined_lca$class_factor_imputed,
@@ -907,7 +862,7 @@ m2hepprep_prep_combined_lca$class_factor_imputed <-
     ref = "High Injecting / Low Sexual Risk"
   )
 
-# Unadjusted model
+# unadjusted model
 mod_class_imp <- glm(
   prep_init_num ~ class_factor_imputed + sdem_reside + rand_arm,
   data = m2hepprep_prep_combined_lca,
@@ -926,7 +881,7 @@ poisson_class_results_imp <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# Adjusted model
+# adjusted model
 mod_class_adjusted_imp <- glm(
   prep_init_num ~ class_factor_imputed + sdem_reside + rand_arm +
     sdem_sex_binary + sdem_age + oat_current + incarc_6m_bin + sdem_slep6m_binary,
@@ -947,7 +902,7 @@ poisson_class_adjusted_results_imp <- data.frame(
 )
 
 # ==============================================================================
-# CREATE PREP INITIATION SUMMARY BY CLASS
+# Create PrEP initiation summary by class
 # ==============================================================================
 
 prep_by_class <- table(
@@ -955,7 +910,7 @@ prep_by_class <- table(
   m2hepprep_prep_combined_lca$prep_init
 )
 
-# Ensure both "No" and "Yes" columns exist
+# ensure both "No" and "Yes" columns exist
 if(!all(c("No", "Yes") %in% colnames(prep_by_class))) {
   missing_cols <- setdiff(c("No", "Yes"), colnames(prep_by_class))
   for(col in missing_cols) prep_by_class <- cbind(prep_by_class, 0)
@@ -974,7 +929,7 @@ prep_summary <- data.frame(
 )
 
 # ==============================================================================
-# SAVE RESULTS TO EXCEL
+# Save results to Excel
 # ==============================================================================
 
 write_xlsx(list(
@@ -984,16 +939,17 @@ write_xlsx(list(
   "PrEP_by_class" = prep_summary
 ), "data/poisson_class_results_imputed.xlsx")
 
-# -------------------- Poisson: PrEP initiation (3-category only) --------------------
+# ==============================================================================
+# Risk perception and PrEP initiation
+# ==============================================================================
 
-# Set reference level
+# reference level
 m2hepprep_prep_combined_lca$hiv_risk_perception_3cat <- relevel(
   m2hepprep_prep_combined_lca$hiv_risk_perception_3cat,
   ref = "Unlikely/Very Unlikely"
 )
 
-# -------------------- UNADJUSTED Poisson model --------------------
-
+# unadjusted Poisson model
 mod_prep_3cat <- glm(
   prep_init_num ~ hiv_risk_perception_3cat + sdem_reside + rand_arm,
   data   = m2hepprep_prep_combined_lca,
@@ -1013,8 +969,7 @@ res_prep_3cat <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# -------------------- ADJUSTED Poisson model --------------------
-
+# adjusted Poisson model
 mod_prep_3cat_adj <- glm(
   prep_init_num ~ hiv_risk_perception_3cat + sdem_reside + rand_arm +
     sdem_sex_binary + sdem_age + oat_current +
@@ -1037,9 +992,9 @@ res_prep_3cat_adj <- data.frame(
 )
 
 
-# -------------------- Multinomial: Class membership (3-category only) --------------------
+# class membership models
 
-# Ensure reference class
+# reference class
 m2hepprep_prep_combined_lca$class_factor_imputed <- droplevels(
   relevel(
     m2hepprep_prep_combined_lca$class_factor_imputed,
@@ -1047,7 +1002,7 @@ m2hepprep_prep_combined_lca$class_factor_imputed <- droplevels(
   )
 )
 
-# -------------------- UNADJUSTED multinomial model --------------------
+# unadjusted hiv risk perception model
 
 mod_cls_3cat <- nnet::multinom(
   class_factor_imputed ~ hiv_risk_perception_3cat + sdem_reside + rand_arm,
@@ -1074,7 +1029,7 @@ res_cls_3cat <- do.call(
   })
 )
 
-# -------------------- ADJUSTED multinomial model --------------------
+# adjusted hiv risk perception model
 
 mod_cls_3cat_adj <- nnet::multinom(
   class_factor_imputed ~ hiv_risk_perception_3cat + sdem_reside + rand_arm +
@@ -1103,8 +1058,7 @@ res_cls_3cat_adj <- do.call(
   })
 )
 
-
-# -------------------- PrEP initiation summary by 3-category risk perception --------------------
+# PrEP initiation summary by 3-category risk perception
 
 prep_by_rp_3cat <- table(
   m2hepprep_prep_combined_lca$hiv_risk_perception_3cat,
@@ -1129,7 +1083,7 @@ prep_summary_rp_3cat <- data.frame(
 )
 
 
-# -------------------- Risk perception distribution within class (3-category) --------------------
+# risk perception distribution within class
 
 rp_by_class_3cat <- table(
   m2hepprep_prep_combined_lca$class_factor_imputed,
@@ -1151,7 +1105,7 @@ rp_class_summary_3cat <- do.call(
   })
 )
 
-# -------------------- Export all results --------------------
+# save results
 
 writexl::write_xlsx(
   list(
