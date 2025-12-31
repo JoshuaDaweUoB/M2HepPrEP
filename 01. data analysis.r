@@ -9,7 +9,7 @@ pacman::p_load(dplyr, mice, writexl, readxl, poLCA, ggplot2, clue, sandwich, lmt
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/Montreal paper/")
 
 # load clean data
-m2hepprep_combined <- read.csv("data/m2hepprep_combined.csv")
+m2hepprep_prep_combined <- read.csv("data/m2hepprep_combined.csv")
 
 # check sex variables
 with(m2hepprep_prep_combined, table(condom_1m, num_sex_partners_3m))
@@ -270,9 +270,8 @@ desc_mi_summary <- desc_mi_all %>%
 # Save both raw and MI summary to one workbook
 writexl::write_xlsx(
   list(
-    Descriptives_raw = desc,
+    Descriptives_MI_by_Imputation = desc_mi_all,
     Descriptives_MI  = desc_mi_summary
-    # , Descriptives_MI_by_imp = desc_mi_wide  # optional sheet
   ),
   "data/lca_descriptives.xlsx"
 )
@@ -603,72 +602,142 @@ wide_table <- freq_by_class %>%
 # Save to Excel
 writexl::write_xlsx(wide_table, "data/class_patterns_categorical_wide.xlsx")
 
-# Include auxiliary vars in the overall/by-city formatted table
-aux_vars_selected <- setdiff(auxiliary_vars, "sdem_reside")
+# ============================================================
+# Auxiliary variables: Overall + By City (Montreal / Miami)
+# ============================================================
+table(df_ref$sdem_reside, useNA = "ifany")
 
-# Ensure auxiliary vars are factors (keeps labels as-is)
+# ------------------------------------------------------------------
+# Reference dataset
+# ------------------------------------------------------------------
+df_ref <- imputed_datasets_mice[[1]]
+df_ref$Class <- final_class_assignment
+
 df_ref <- df_ref %>%
-  mutate(across(all_of(aux_vars_selected), as.factor))
-
-# Overall counts/percents per level for auxiliary vars
-overall_aux <- bind_rows(lapply(aux_vars_selected, function(var) {
-  df_ref %>%
-    group_by(Variable = var, Level_Label = !!sym(var)) %>%
-    summarise(Count_Overall = n(), .groups = "drop") %>%
-    group_by(Variable) %>%
-    mutate(Percent_Overall = round(100 * Count_Overall / sum(Count_Overall), 1)) %>%
-    ungroup()
-}))
-
-# By-city counts/percents per level for auxiliary vars (Montreal/Miami)
-by_city_aux_long <- bind_rows(lapply(aux_vars_selected, function(var) {
-  df_ref %>%
-    filter(sdem_reside %in% c("Montreal", "Miami")) %>%
-    group_by(Variable = var, Level_Label = !!sym(var), sdem_reside) %>%
-    summarise(Count = n(), .groups = "drop") %>%
-    group_by(Variable, sdem_reside) %>%
-    mutate(Percent = round(100 * Count / sum(Count), 1)) %>%
-    ungroup()
-}))
-
-# Pivot cities to columns: Count_Montreal, Percent_Montreal, Count_Miami, Percent_Miami
-wide_aux_city <- by_city_aux_long %>%
-  pivot_wider(
-    id_cols    = c(Variable, Level_Label),
-    names_from = sdem_reside,
-    values_from = c(Count, Percent),
-    names_sep  = "_"
+  mutate(
+    City = dplyr::case_when(
+      sdem_reside == "Greater Montreal area" ~ "Montreal",
+      sdem_reside == "Greater Miami area"    ~ "Miami",
+      TRUE ~ NA_character_
+    )
   )
 
-# Combine overall + city views into one aux table
-levels_overall_by_city_aux <- overall_aux %>%
-  left_join(wide_aux_city, by = c("Variable", "Level_Label")) %>%
-  arrange(Variable, Level_Label)
+# Auxiliary variables (exclude sdem_reside itself)
+aux_vars_selected <- setdiff(auxiliary_vars, "sdem_reside")
 
-# Ensure city columns exist even if one city is absent
-for (nm in c("Count_Montreal","Percent_Montreal","Count_Miami","Percent_Miami")) {
+# Safety checks
+stopifnot(
+  all(aux_vars_selected %in% names(df_ref)),
+  "sdem_reside" %in% names(df_ref)
+)
+
+# Ensure auxiliary vars are factors
+df_ref <- df_ref %>%
+  dplyr::mutate(dplyr::across(dplyr::all_of(aux_vars_selected), as.factor))
+
+# ============================================================
+# Overall counts / percents (drop NA levels)
+# ============================================================
+
+overall_aux <- dplyr::bind_rows(lapply(aux_vars_selected, function(var) {
+  df_ref %>%
+    dplyr::filter(!is.na(.data[[var]])) %>%
+    dplyr::group_by(
+      Variable    = var,
+      Level_Label = .data[[var]]
+    ) %>%
+    dplyr::summarise(
+      Count_Overall = dplyr::n(),
+      .groups = "drop"
+    ) %>%
+    dplyr::group_by(Variable) %>%
+    dplyr::mutate(
+      Percent_Overall = round(100 * Count_Overall / sum(Count_Overall), 1)
+    ) %>%
+    dplyr::ungroup()
+}))
+
+# ============================================================
+# By-city counts / percents (Montreal & Miami)
+# ============================================================
+
+by_city_aux_long <- dplyr::bind_rows(lapply(aux_vars_selected, function(var) {
+  df_ref %>%
+    dplyr::filter(
+      !is.na(.data[[var]]),
+      !is.na(City),
+      City %in% c("Montreal", "Miami")
+    ) %>%
+    dplyr::group_by(
+      Variable    = var,
+      Level_Label = .data[[var]],
+      City
+    ) %>%
+    dplyr::summarise(
+      Count = dplyr::n(),
+      .groups = "drop"
+    ) %>%
+    dplyr::group_by(Variable, City) %>%
+    dplyr::mutate(
+      Percent = round(100 * Count / sum(Count), 1)
+    ) %>%
+    dplyr::ungroup()
+}))
+
+# ============================================================
+# Pivot cities wide (EXPLICIT tidyr::pivot_wider)
+# ============================================================
+
+wide_aux_city <- tidyr::pivot_wider(
+  by_city_aux_long,
+  id_cols     = c(Variable, Level_Label),
+  names_from  = City,
+  values_from = c(Count, Percent),
+  names_sep   = "_"
+)
+
+# ============================================================
+# Combine Overall + City tables
+# ============================================================
+
+levels_overall_by_city_aux <- overall_aux %>%
+  dplyr::left_join(
+    wide_aux_city,
+    by = c("Variable", "Level_Label")
+  ) %>%
+  dplyr::arrange(Variable, Level_Label)
+
+# Ensure city columns exist
+for (nm in c(
+  "Count_Montreal", "Percent_Montreal",
+  "Count_Miami",    "Percent_Miami"
+)) {
   if (!nm %in% names(levels_overall_by_city_aux)) {
-    levels_overall_by_city_aux[[nm]] <- if (grepl("^Count", nm)) NA_integer_ else NA_real_
+    levels_overall_by_city_aux[[nm]] <-
+      if (grepl("^Count", nm)) NA_integer_ else NA_real_
   }
 }
 
-# Add formatted columns: "xx (x.x)"
+# ============================================================
+# Add formatted columns: "n (x.x)"
+# ============================================================
+
 levels_overall_by_city_aux <- levels_overall_by_city_aux %>%
   dplyr::mutate(
-    Overall_fmt  = sprintf(
+    Overall_fmt = sprintf(
       "%d (%.1f)",
-      coalesce(Count_Overall, 0L),
-      coalesce(Percent_Overall, 0)
+      Count_Overall,
+      Percent_Overall
     ),
-    Montreal_fmt = sprintf(
-      "%d (%.1f)",
-      coalesce(Count_Montreal, 0L),
-      coalesce(Percent_Montreal, 0)
+    Montreal_fmt = ifelse(
+      is.na(Count_Montreal),
+      NA,
+      sprintf("%d (%.1f)", Count_Montreal, Percent_Montreal)
     ),
-    Miami_fmt    = sprintf(
-      "%d (%.1f)",
-      coalesce(Count_Miami, 0L),
-      coalesce(Percent_Miami, 0)
+    Miami_fmt = ifelse(
+      is.na(Count_Miami),
+      NA,
+      sprintf("%d (%.1f)", Count_Miami, Percent_Miami)
     )
   ) %>%
   dplyr::select(
@@ -680,13 +749,15 @@ levels_overall_by_city_aux <- levels_overall_by_city_aux %>%
     dplyr::everything()
   )
 
-# Save combined table to Excel
+# ============================================================
+# Save to Excel
+# ============================================================
+
 writexl::write_xlsx(
   list(
-    LCA_Variables_By_Class   = wide_table,
     Auxiliary_Overall_ByCity = levels_overall_by_city_aux
   ),
-  "data/lca_levels_overall_by_city.xlsx"
+  "data/auxiliary_overall_by_city.xlsx"
 )
 
 # Assign classes
@@ -697,10 +768,10 @@ m2hepprep_prep_combined_lca$class_factor_imputed <- factor(
   final_class_assignment,
   levels = 1:k_final,
   labels = c(
-    "Low Injecting / High Sexual Risk",           # Class 1
+    "High Injecting / Low Sexual Risk",           # Class 1
     "High Injecting / High Sexual Risk",          # Class 2
     "Low Overall Risk",                           # Class 3
-    "High Injecting / Low Sexual Risk"            # Class 4
+    "Low Injecting / High Sexual Risk"            # Class 4
   )
 )
 
