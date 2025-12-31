@@ -18,7 +18,7 @@ with(m2hepprep_prep_combined, table(condom_1m, num_sex_partners_3m))
 # Define LCA variables
 # ============================================================
 lca_vars <- c(
-  "inject_meth_6m", "inject_cocaine_6m", "inject_fent_6m",
+  # "inject_meth_6m", "inject_cocaine_6m", "inject_fent_6m",
   "syringe_share_6m_bin", "syringe_cooker_6m_bin",
   "syringe_loan_6m_bin", "syringe_reuse_6m_bin",
   # "days_used_1m_3cat", no longer used
@@ -29,7 +29,7 @@ lca_vars <- c(
 )
 
 lca_vars_bin <- c(
-  "inject_meth_6m", "inject_cocaine_6m", "inject_fent_6m",
+  # "inject_meth_6m", "inject_cocaine_6m", "inject_fent_6m",
   "syringe_share_6m_bin", "syringe_cooker_6m_bin",
   "syringe_loan_6m_bin", "syringe_reuse_6m_bin",
   "sexwork_3m"
@@ -197,17 +197,10 @@ with(completed_data, table(condom_1m, num_sex_partners_3m))
 # ============================================================
 # Verify imputation
 # ============================================================
-completed_data <- complete(imp, 1)
+completed_data <- imputed_datasets_mice[[1]]
 
 # remaining NAs
 print(colSums(is.na(completed_data[lca_vars])))
-
-# ============================================================
-# Store imputed datasets from mice
-# ============================================================
-imputed_datasets_mice <- lapply(seq_len(imp$m), function(i) {
-  complete(imp, i)
-})
 
 # ============================================================
 # Prepare datasets for poLCA
@@ -536,15 +529,15 @@ lca_vars_selected <- c(
   "syringe_cooker_6m_bin",
   "syringe_loan_6m_bin",
   "syringe_reuse_6m_bin",
- # "days_used_1m_3cat", # removed var
-  "inject_meth_6m",
-  "inject_cocaine_6m",
-  "inject_fent_6m",
+ # "days_used_1m_3cat",
+ # "inject_meth_6m",
+ # "inject_cocaine_6m",
+ # "inject_fent_6m",
   "sexwork_3m",
- # "sexual_abuse_6m", # removed var
+ # "sexual_abuse_6m",
   "num_sex_partners_3m",
   "condom_1m"
-  # , "condom_intent_6m" # removed var
+  # , "condom_intent_6m"
 )
 
 # LCA vars as factors
@@ -559,9 +552,9 @@ df_ref <- df_ref %>%
     syringe_loan_6m_bin   = recode(syringe_loan_6m_bin, "1" = "No", "2" = "Yes", .default = NA_character_),
     syringe_reuse_6m_bin  = recode(syringe_reuse_6m_bin, "1" = "No", "2" = "Yes", .default = NA_character_),
     # days_used_1m_3cat     = recode(days_used_1m_3cat, "1" = "0–14 days", "2" = "15–24 days", "3" = "25+ days", .default = NA_character_),
-    inject_fent_6m        = recode(inject_fent_6m, "1" = "No", "2" = "Yes", .default = NA_character_),
-    inject_meth_6m        = recode(inject_meth_6m, "1" = "No", "2" = "Yes", .default = NA_character_),
-    inject_cocaine_6m     = recode(inject_cocaine_6m, "1" = "No", "2" = "Yes", .default = NA_character_),
+    # inject_fent_6m        = recode(inject_fent_6m, "1" = "No", "2" = "Yes", .default = NA_character_),
+    # inject_meth_6m        = recode(inject_meth_6m, "1" = "No", "2" = "Yes", .default = NA_character_),
+    # inject_cocaine_6m     = recode(inject_cocaine_6m, "1" = "No", "2" = "Yes", .default = NA_character_),
     sexwork_3m            = recode(sexwork_3m, "1" = "No", "2" = "Yes", .default = NA_character_),
     # sexual_abuse_6m       = recode(sexual_abuse_6m, "1" = "No", "2" = "Yes", .default = NA_character_),
     num_sex_partners_3m   = recode(num_sex_partners_3m, "1" = "None", "2" = "One", "3" = "Two or more", .default = NA_character_),
@@ -579,32 +572,33 @@ df_ref <- df_ref %>%
   )
 
 # Compute counts and percentages per class
+
 freq_by_class <- lca_vars_selected %>%
   lapply(function(var) {
     df_ref %>%
-      group_by(Class, !!sym(var)) %>%
-      summarise(Count = n(), .groups = "drop") %>%
-      rename(Level_Label = !!sym(var)) %>%
-      mutate(Variable = var) %>%
-      select(Variable, Level_Label, Class, Count)
+      dplyr::group_by(Class, !!rlang::sym(var)) %>%
+      dplyr::summarise(Count = dplyr::n(), .groups = "drop") %>%
+      dplyr::rename(Level_Label = !!rlang::sym(var)) %>%
+      dplyr::mutate(Variable = var) %>%
+      dplyr::select(Variable, Level_Label, Class, Count)
   }) %>%
-  bind_rows() %>%
-  group_by(Variable, Class) %>%
-  mutate(
+  dplyr::bind_rows() %>%
+  dplyr::group_by(Variable, Class) %>%
+  dplyr::mutate(
     Total_Class = sum(Count),
     Percent = round(Count / Total_Class * 100, 1)
   ) %>%
-  ungroup()
+  dplyr::ungroup()
 
 # Pivot so each row is a variable + level, with columns for each class
 wide_table <- freq_by_class %>%
-  pivot_wider(
-    id_cols = c(Variable, Level_Label),         # these define the rows
-    names_from = Class,                         # Class values become columns
-    values_from = c(Count, Percent),            # multiple values per column
+  tidyr::pivot_wider(
+    id_cols = c(Variable, Level_Label),
+    names_from = Class,
+    values_from = c(Count, Percent),
     names_sep = "_Class"
   ) %>%
-  arrange(Variable, Level_Label)
+  dplyr::arrange(Variable, Level_Label)
 
 # Save to Excel
 writexl::write_xlsx(wide_table, "data/class_patterns_categorical_wide.xlsx")
@@ -629,10 +623,10 @@ overall_aux <- bind_rows(lapply(aux_vars_selected, function(var) {
 # By-city counts/percents per level for auxiliary vars (Montreal/Miami)
 by_city_aux_long <- bind_rows(lapply(aux_vars_selected, function(var) {
   df_ref %>%
-    filter(City %in% c("Montreal", "Miami")) %>%
-    group_by(Variable = var, Level_Label = !!sym(var), City) %>%
+    filter(sdem_reside %in% c("Montreal", "Miami")) %>%
+    group_by(Variable = var, Level_Label = !!sym(var), sdem_reside) %>%
     summarise(Count = n(), .groups = "drop") %>%
-    group_by(Variable, City) %>%
+    group_by(Variable, sdem_reside) %>%
     mutate(Percent = round(100 * Count / sum(Count), 1)) %>%
     ungroup()
 }))
@@ -641,7 +635,7 @@ by_city_aux_long <- bind_rows(lapply(aux_vars_selected, function(var) {
 wide_aux_city <- by_city_aux_long %>%
   pivot_wider(
     id_cols    = c(Variable, Level_Label),
-    names_from = City,
+    names_from = sdem_reside,
     values_from = c(Count, Percent),
     names_sep  = "_"
   )
@@ -660,19 +654,38 @@ for (nm in c("Count_Montreal","Percent_Montreal","Count_Miami","Percent_Miami"))
 
 # Add formatted columns: "xx (x.x)"
 levels_overall_by_city_aux <- levels_overall_by_city_aux %>%
-  mutate(
-    Overall_fmt  = sprintf("%d (%.1f)", coalesce(Count_Overall, 0L), coalesce(Percent_Overall, 0)),
-    Montreal_fmt = sprintf("%d (%.1f)", coalesce(`Count_Montreal`, 0L), coalesce(`Percent_Montreal`, 0)),
-    Miami_fmt    = sprintf("%d (%.1f)", coalesce(`Count_Miami`, 0L), coalesce(`Percent_Miami`, 0))
+  dplyr::mutate(
+    Overall_fmt  = sprintf(
+      "%d (%.1f)",
+      coalesce(Count_Overall, 0L),
+      coalesce(Percent_Overall, 0)
+    ),
+    Montreal_fmt = sprintf(
+      "%d (%.1f)",
+      coalesce(Count_Montreal, 0L),
+      coalesce(Percent_Montreal, 0)
+    ),
+    Miami_fmt    = sprintf(
+      "%d (%.1f)",
+      coalesce(Count_Miami, 0L),
+      coalesce(Percent_Miami, 0)
+    )
   ) %>%
-  select(Variable, Level_Label, Overall_fmt, Montreal_fmt, Miami_fmt, everything())
-
-# Bind auxiliary + LCA variable tables
-levels_overall_by_city_combined <- bind_rows(levels_overall_by_city, levels_overall_by_city_aux)
+  dplyr::select(
+    Variable,
+    Level_Label,
+    Overall_fmt,
+    Montreal_fmt,
+    Miami_fmt,
+    dplyr::everything()
+  )
 
 # Save combined table to Excel
 writexl::write_xlsx(
-  list(Levels_Overall_ByCity = levels_overall_by_city_combined),
+  list(
+    LCA_Variables_By_Class   = wide_table,
+    Auxiliary_Overall_ByCity = levels_overall_by_city_aux
+  ),
   "data/lca_levels_overall_by_city.xlsx"
 )
 
@@ -684,9 +697,9 @@ m2hepprep_prep_combined_lca$class_factor_imputed <- factor(
   final_class_assignment,
   levels = 1:k_final,
   labels = c(
-    "Low Overall Risk" ,                          # Class 1
-    "Low Injecting / High Sexual Risk",           # Class 2
-    "High Injecting / High Sexual Risk",          # Class 3
+    "Low Injecting / High Sexual Risk",           # Class 1
+    "High Injecting / High Sexual Risk",          # Class 2
+    "Low Overall Risk",                           # Class 3
     "High Injecting / Low Sexual Risk"            # Class 4
   )
 )
@@ -694,16 +707,15 @@ m2hepprep_prep_combined_lca$class_factor_imputed <- factor(
 # 1) Choose the level per variable to plot (edit labels if yours differ)
 target_levels <- tibble::tribble(
   ~Variable,                 ~Level_Label,                                          ~Domain,           ~Indicator,
-  "inject_meth_6m",          "Yes",                                                "Injecting",       "Injected meth (6m)",
-  "inject_cocaine_6m",       "Yes",                                                "Injecting",       "Injected cocaine (6m)",
-  "inject_fent_6m",          "Yes",                                                "Injecting",       "Injected fentanyl (6m)",
+ # "inject_meth_6m",          "Yes",                                                "Injecting",       "Injected meth (6m)",
+ # "inject_cocaine_6m",       "Yes",                                                "Injecting",       "Injected cocaine (6m)",
+ # "inject_fent_6m",          "Yes",                                                "Injecting",       "Injected fentanyl (6m)",
  # "days_used_1m_3cat",       "25+ days",                                           "Injecting",       "Used drugs 25+ days (1m)",
   "syringe_share_6m_bin",    "Yes",                                                "Injecting",       "Shared syringe (6m)",
   "syringe_cooker_6m_bin",   "Yes",                                                "Injecting",       "Shared cooker (6m)",
   "syringe_loan_6m_bin",     "Yes",                                                "Injecting",       "Loaned syringe (6m)",
   "syringe_reuse_6m_bin",    "Yes",                                                "Injecting",       "Reused syringe (6m)",
-  # condom_intent_6m",        "Agree / Strongly Agree",                             "Injecting",       "Intend to use condoms (6m)",
-
+ # condom_intent_6m",        "Agree / Strongly Agree",                             "Injecting",       "Intend to use condoms (6m)",
   "sexwork_3m",              "Yes",                                                "Sexual Risk",     "Sex work (3m)",
   "num_sex_partners_3m",     "Two or more",                                        "Sexual Risk",     "≥2 partners (3m)",
   "condom_1m",               "Never / Rarely / Some of the time",                  "Sexual Risk",     "Inconsistent condom use (1m)",
@@ -719,22 +731,23 @@ classes_idx  <- seq_along(class_labels)
 
 # Build a full grid for all classes × selected indicators
 grid <- target_levels %>%
-  select(Variable, Level_Label, Domain, Indicator, Order) %>%
+  dplyr::select(Variable, Level_Label, Domain, Indicator, Order) %>%
   tidyr::crossing(Class = classes_idx)
 
 # Join frequencies and fill missing with zeros
 plot_df <- grid %>%
-  left_join(
-    freq_by_class %>% select(Variable, Level_Label, Class, Percent),
+  dplyr::left_join(
+    freq_by_class %>%
+      dplyr::select(Variable, Level_Label, Class, Percent),
     by = c("Variable", "Level_Label", "Class")
   ) %>%
-  mutate(
+  dplyr::mutate(
     Percent    = tidyr::replace_na(Percent, 0),
     prob       = Percent / 100,
     ClassLabel = factor(Class, levels = classes_idx, labels = class_labels),
     x          = Order
   ) %>%
-  arrange(x, ClassLabel)
+  dplyr::arrange(x, ClassLabel)
 
 # 3) Domain separators and headers
 domain_spans <- target_levels %>%
@@ -808,12 +821,20 @@ write.csv(m2hepprep_prep_combined_lca, "data/m2hepprep_combined_lca.csv", row.na
 # ==============================================================================
 
 # load data
-m2hepprep_prep_combined_lca <- read.csv("data/m2hepprep_prep_combined_lca.csv")
+m2hepprep_prep_combined_lca <- read.csv("data/m2hepprep_combined_lca.csv")
 
-# Set Class 3 as the reference category
+# Set high injecting low sexual risk as the reference category
 m2hepprep_prep_combined_lca$class_factor_imputed <-
-  relevel(m2hepprep_prep_combined_lca$class_factor_imputed,
-          ref = "High Injecting / Low Sexual Risk")
+  factor(
+    m2hepprep_prep_combined_lca$class_factor_imputed,
+    ordered = FALSE
+  )
+
+m2hepprep_prep_combined_lca$class_factor_imputed <-
+  relevel(
+    m2hepprep_prep_combined_lca$class_factor_imputed,
+    ref = "High Injecting / Low Sexual Risk"
+  )
 
 # Unadjusted model
 mod_class_imp <- glm(
@@ -891,7 +912,6 @@ write_xlsx(list(
   "Pooled_fit_statistics" = fit_medians,       # updated from pooled_fit_stats
   "PrEP_by_class" = prep_summary
 ), "data/poisson_class_results_imputed.xlsx")
-
 
 # -------------------- Poisson: PrEP initiation (3-category only) --------------------
 
