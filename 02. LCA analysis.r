@@ -222,7 +222,7 @@ average_fit_stats <- all_fit_stats %>%
     .groups = "drop"
   )
 
-# Write to Excel
+# write to Excel
 write_xlsx(
   list(
     LCA_Fit_Imputations = all_fit_stats,

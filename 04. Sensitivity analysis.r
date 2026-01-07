@@ -108,6 +108,9 @@ fit_stats <- do.call(rbind, fit_stats)
 
 print(fit_stats)
 
+# write to Excel
+write_xlsx(fit_stats, "data/lca_fit_stats_CC.xlsx")
+
 # ============================================================
 # Elbow plot
 # ============================================================
