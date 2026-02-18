@@ -582,23 +582,23 @@ m2hepprep_prep_combined_lca$class_factor_imputed <- factor(
   final_class_assignment,
   levels = 1:k_final,
   labels = c(
-    "High Injecting / Low Sexual Risk",           # Class 1
-    "High Injecting / High Sexual Risk",          # Class 2
-    "Low Overall Risk",                           # Class 3
-    "Low Injecting / High Sexual Risk"            # Class 4
+    "High Injecting / Low Sexual Risk (n=120)",           # Class 1
+    "High Injecting / High Sexual Risk (n=77)",           # Class 2
+    "Low Injecting Low Sexual Risk (n=172)",              # Class 3
+    "Low Injecting / High Sexual Risk (n=75)"             # Class 4
   )
 )
 
 # levels for plotting
 target_levels <- tibble::tribble(
   ~Variable,                 ~Level_Label,                                          ~Domain,           ~Indicator,
-  "syringe_share_6m_bin",    "Yes",                                                "Injecting",       "Shared syringe (6m)",
-  "syringe_cooker_6m_bin",   "Yes",                                                "Injecting",       "Shared cooker (6m)",
-  "syringe_loan_6m_bin",     "Yes",                                                "Injecting",       "Loaned syringe (6m)",
-  "syringe_reuse_6m_bin",    "Yes",                                                "Injecting",       "Reused syringe (6m)",
-  "sexwork_3m",              "Yes",                                                "Sexual Risk",     "Sex work (3m)",
-  "num_sex_partners_3m",     "Two or more",                                        "Sexual Risk",     "≥2 partners (3m)",
-  "condom_1m",               "Never / Rarely / Some of the time",                  "Sexual Risk",     "Inconsistent condom use (1m)",
+  "syringe_share_6m_bin",    "Yes",                                                "Injecting",       "Shared syringe \npast six months",
+  "syringe_cooker_6m_bin",   "Yes",                                                "Injecting",       "Shared cooker \npast six months",
+  "syringe_loan_6m_bin",     "Yes",                                                "Injecting",       "Loaned syringe \npast six months",
+  "syringe_reuse_6m_bin",    "Yes",                                                "Injecting",       "Reused syringe \npast six months",
+  "sexwork_3m",              "Yes",                                                "Sexual Risk",     "Sex work \npast three months",
+  "num_sex_partners_3m",     "Two or more",                                        "Sexual Risk",     "≥2 partners \npast three months",
+  "condom_1m",               "Never / Rarely / Some of the time",                  "Sexual Risk",     "Inconsistent \ncondom use \npast month",
 ) %>%
   mutate(Order = row_number())
 
@@ -639,7 +639,8 @@ color_vals    <- c("#000000", "#2E8B57", "#7F7F7F", "#B0B0B0", "#1F77B4")[seq_le
 linetype_vals <- c("solid",  "solid",   "dashed",  "dotted",  "dotdash")[seq_len(n_classes)]
 
 # ggplot baby
-p <- ggplot(plot_df, aes(x = x, y = prob, group = ClassLabel, color = ClassLabel, linetype = ClassLabel)) +
+p <- ggplot(plot_df, aes(x = x, y = prob, group = ClassLabel,
+                         color = ClassLabel, linetype = ClassLabel)) +
   geom_line(linewidth = 1.2) +
   geom_point(size = 2) +
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.1)) +
@@ -648,39 +649,31 @@ p <- ggplot(plot_df, aes(x = x, y = prob, group = ClassLabel, color = ClassLabel
     labels = target_levels$Indicator,
     expand = c(0.02, 0.02)
   ) +
+  geom_vline(xintercept = 4.5, size = 0.5) +
+  geom_hline(yintercept = 0, colour = "grey70", linewidth = 0.6) +
   scale_color_manual(values = color_vals) +
   scale_linetype_manual(values = linetype_vals) +
-  labs(
-    title = "Probability of Indicators for Each Class",
-    x = NULL, y = NULL, color = NULL, linetype = NULL
-  ) +
+  labs(title = " ", x = NULL, y = NULL, color = NULL, linetype = NULL) +
+  coord_cartesian(ylim = c(0, 1.05)) +
   theme_minimal(base_size = 12) +
   theme(
-    axis.text.x = element_text(size = 10, angle = 45, hjust = 1, vjust = 1),
-    plot.title = element_text(face = "bold")
-  ) +
-  coord_cartesian(ylim = c(0, 1.05))
-
-p <- p + theme(axis.text.x = element_text(angle = 65, hjust = 1, vjust = 1))
-p <- p + theme(
-  panel.grid.major = element_blank(),
-  panel.grid.minor = element_blank()
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    text         = element_text(colour = "black"),
+    plot.title   = element_text(face = "bold", colour = "black"),
+    axis.text.x  = element_text(size = 13, angle = 0, hjust = 0.5, colour = "black"),
+    axis.text.y  = element_text(size = 13, colour = "black"),
+    legend.title = element_text(colour = "black"),
+    legend.text  = element_text(size = 13, colour = "black"),
+    legend.position = c(0.85, 0.85),
+    plot.margin = margin(t = 10, r = 25, b = 15, l = 10)
 )
-p <- p + theme(
-  text         = element_text(colour = "black"),
-  plot.title   = element_text(face = "bold", colour = "black"),
-  axis.text.x  = element_text(size = 10, angle = 65, hjust = 1, vjust = 1, colour = "black"),
-  axis.text.y  = element_text(colour = "black"),
-  legend.title = element_text(colour = "black"),
-  legend.text  = element_text(colour = "black")
-)
-p <- p + ggplot2::geom_hline(yintercept = 0, colour = "grey70", linewidth = 0.6)
-
+  
 # save
 ggplot2::ggsave(
   filename = "figures/lca_indicator_probabilities_wide.png",
   plot = p,
-  width = 14, height = 6, units = "in", dpi = 300,
+  width = 16, height = 6, units = "in", dpi = 300,
   bg = "white"
 )
 
