@@ -1,6 +1,4 @@
-# ============================================================
 # Load libraries and data
-# ============================================================
 
 # stop if script has an error
 options(error = stop)
@@ -11,9 +9,7 @@ pacman::p_load(dplyr, mice, writexl, readxl, poLCA, ggplot2, clue, sandwich, lmt
 # set working directory
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/Montreal paper/")
 
-# ==============================================================================
 # Poisson regression with imputed class assignments
-# ==============================================================================
 
 # load data
 m2hepprep_prep_combined_lca <- read.csv("data/m2hepprep_combined_lca.csv")
@@ -70,9 +66,7 @@ poisson_class_adjusted_results_imp <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# ==============================================================================
 # Create PrEP initiation summary by class
-# ==============================================================================
 
 prep_by_class <- table(
   m2hepprep_prep_combined_lca$class_factor_imputed,
@@ -97,9 +91,7 @@ prep_summary <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# ==============================================================================
 # Save results to Excel
-# ==============================================================================
 
 write_xlsx(list(
   "Poisson_class_unadjusted_imputed" = poisson_class_results_imp,
@@ -108,9 +100,7 @@ write_xlsx(list(
   "PrEP_by_class" = prep_summary
 ), "data/poisson_class_results_imputed.xlsx")
 
-# ==============================================================================
 # Risk perception and PrEP initiation
-# ==============================================================================
 
 # reference level
 m2hepprep_prep_combined_lca$hiv_risk_perception_3cat <-

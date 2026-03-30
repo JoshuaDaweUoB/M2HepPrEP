@@ -1,6 +1,4 @@
-# ============================================================
 # Load libraries and data
-# ============================================================
 
 # stop if script has an error
 options(error = stop)
@@ -11,9 +9,10 @@ pacman::p_load(dplyr, mice, writexl, readxl, poLCA, ggplot2, clue, sandwich, lmt
 # set working directory
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/Montreal paper/")
 
-# ============================================================
+# load
+readRDS("data/imputed_datasets.rds")
+
 # Define LCA variables
-# ============================================================
 lca_vars <- c(
   "syringe_share_6m_bin", "syringe_cooker_6m_bin",
   "syringe_loan_6m_bin", "syringe_reuse_6m_bin",
@@ -32,9 +31,8 @@ lca_vars_cat <- c(
   "condom_1m"
 )
 
-# ============================================================
+
 # Auxiliary variables
-# ============================================================
 auxiliary_vars <- c(
   "sdem_age_binary",
   "sdem_sex_binary",
@@ -44,9 +42,8 @@ auxiliary_vars <- c(
   "sdem_slep6m_binary"
 )
 
-# ============================================================
+
 # Prepare datasets for poLCA
-# ============================================================
 prepare_for_poLCA <- function(df, vars) {
   df[vars] <- lapply(df[vars], function(x) {
     x <- factor(x)
@@ -63,9 +60,7 @@ imputed_datasets_lca <- lapply(seq_len(imp$m), function(i) {
 
 print(lapply(imputed_datasets_lca[[1]][lca_vars], unique))
 
-# ============================================================
 # QA checks
-# ============================================================
 
 # first dataset
 cat("\nLevels (binary vars):\n")
@@ -78,9 +73,7 @@ print(sapply(imputed_datasets_mice[[1]][lca_vars_cat], levels))
 cat("\nUnique values after conversion (should be integers >=1):\n")
 print(lapply(imputed_datasets_lca[[1]][lca_vars], unique))
 
-# ============================================================
 # Save descriptive stats of LCA variables
-# ============================================================
 
 desc_mi_all <- bind_rows(lapply(seq_len(imp$m), function(i) {
   df <- imputed_datasets_mice[[i]]
@@ -118,25 +111,17 @@ writexl::write_xlsx(
   "data/lca_descriptives.xlsx"
 )
 
-# ==========================================================================
 # Multiple imputation latent class analysis
-# ==========================================================================
 
-# ======================================================
 # Number of imputations
-# ======================================================
 n_imp <- length(imputed_datasets_lca)
 
-# ======================================================
 # LCA formula
-# ======================================================
 lca_formula <- as.formula(
   paste0("cbind(", paste(lca_vars, collapse = ","), ") ~ 1")
 )
 
-# ======================================================
 # Calculate fit statistics
-# ======================================================
 calculate_fit_stats <- function(lca_model, k, n) {
   sabic <- lca_model$bic - log(n) * (lca_model$npar - 1) / 2
   
@@ -168,9 +153,7 @@ calculate_fit_stats <- function(lca_model, k, n) {
   )
 }
 
-# ======================================================
 # Run LCA on all imputed datasets
-# ======================================================
 set.seed(123)
 
 fit_stats_all <- vector("list", n_imp)
@@ -198,9 +181,7 @@ for (imp_idx in seq_len(n_imp)) {
   fit_stats_all[[imp_idx]] <- do.call(rbind, fit_stats_imp)
 }
 
-# ======================================================
 # Combine fit statistics across imputations
-# ======================================================
 
 # combine fit statistics across imputations
 all_fit_stats <- do.call(rbind, lapply(seq_len(n_imp), function(i) {
@@ -231,9 +212,7 @@ write_xlsx(
   "data/lca_fit_stats_imputed.xlsx"
 )
 
-# ======================================================
 # Summarise fit statistics
-# ======================================================
 fit_summary <- all_fit_stats %>%
   group_by(NClasses) %>%
   summarise(
@@ -242,9 +221,7 @@ fit_summary <- all_fit_stats %>%
     SABIC_med = median(SABIC, na.rm = TRUE)
   )
 
-# ======================================================
 # Elbow plot
-# ======================================================
 elbow_plot <- ggplot(fit_summary, aes(x = NClasses)) +
   geom_line(aes(y = AIC_med, color = "AIC"), linewidth = 1.2) +
   geom_point(aes(y = AIC_med, color = "AIC"), size = 3) +
@@ -263,9 +240,7 @@ elbow_plot <- ggplot(fit_summary, aes(x = NClasses)) +
 
 print(elbow_plot)
 
-# ==============================================================================
 # Model fit statistics across imputations
-# ==============================================================================
 
 fit_medians <- all_fit_stats %>%
   group_by(NClasses) %>%
@@ -281,9 +256,7 @@ print(fit_medians)
 # final number of classes
 k_final <- 4
 
-# ==============================================================================
 # Fit final LCA model across imputations
-# ==============================================================================
 
 n_imp <- length(imputed_datasets_lca)
 n_participants <- nrow(imputed_datasets_lca[[1]])
@@ -305,9 +278,7 @@ for (i in seq_len(n_imp)) {
   )
 }
 
-# ==============================================================================
 # Class labels across imputations
-# ==============================================================================
 
 # rows with any NA in LCA variables, across all imputations
 lapply(seq_along(imputed_datasets_mice), function(i) {
@@ -338,9 +309,7 @@ for (i in 2:n_imp) {
   class_assignments[, i] <- align_classes(pred, ref_classes)
 }
 
-# ==============================================================================
 # Pool class membership 
-# ==============================================================================
 
 final_class_assignment <- apply(class_assignments, 1, function(x) {
   as.numeric(names(which.max(table(x))))
@@ -357,9 +326,7 @@ cat("Perfect agreement rate:", round(agreement_rate * 100, 1), "%\n\n")
 # class distribution
 print(table(final_class_assignment))
 
-# ==============================================================================
 # First dataset with final class
-# ==============================================================================
 
 df_ref <- imputed_datasets_lca[[1]]
 df_ref$Class <- final_class_assignment
@@ -427,9 +394,7 @@ wide_table <- freq_by_class %>%
 # save
 writexl::write_xlsx(wide_table, "data/class_patterns_categorical_wide.xlsx")
 
-# ============================================================
 # Auxiliary variables: Overall + By City (Montreal / Miami)
-# ============================================================
 table(df_ref$sdem_reside, useNA = "ifany")
 
 # reference dataset
@@ -452,9 +417,7 @@ aux_vars_selected <- setdiff(auxiliary_vars, "sdem_reside")
 df_ref <- df_ref %>%
   dplyr::mutate(dplyr::across(dplyr::all_of(aux_vars_selected), as.factor))
 
-# ============================================================
 # Overall counts / percents (drop NA levels)
-# ============================================================
 
 overall_aux <- dplyr::bind_rows(lapply(aux_vars_selected, function(var) {
   df_ref %>%
@@ -474,9 +437,7 @@ overall_aux <- dplyr::bind_rows(lapply(aux_vars_selected, function(var) {
     dplyr::ungroup()
 }))
 
-# ============================================================
 # By-city counts / percents (Montreal & Miami)
-# ============================================================
 
 by_city_aux_long <- dplyr::bind_rows(lapply(aux_vars_selected, function(var) {
   df_ref %>%
@@ -501,9 +462,7 @@ by_city_aux_long <- dplyr::bind_rows(lapply(aux_vars_selected, function(var) {
     dplyr::ungroup()
 }))
 
-# ============================================================
 # Pivot cities wide
-# ============================================================
 
 wide_aux_city <- tidyr::pivot_wider(
   by_city_aux_long,
@@ -513,9 +472,7 @@ wide_aux_city <- tidyr::pivot_wider(
   names_sep   = "_"
 )
 
-# ============================================================
 # Combine Overall + City tables
-# ============================================================
 
 levels_overall_by_city_aux <- overall_aux %>%
   dplyr::left_join(
@@ -535,9 +492,7 @@ for (nm in c(
   }
 }
 
-# ============================================================
-# Add formatted columns: "n (x.x)"
-# ============================================================
+# Add formatted columns
 
 levels_overall_by_city_aux <- levels_overall_by_city_aux %>%
   dplyr::mutate(
@@ -677,9 +632,7 @@ ggplot2::ggsave(
   bg = "white"
 )
 
-# ---------------------------
 # Inspect class distribution
-# ---------------------------
 cat("\nClass distribution (should match pooled assignments):\n")
 print(table(m2hepprep_prep_combined_lca$class_factor_imputed))
 

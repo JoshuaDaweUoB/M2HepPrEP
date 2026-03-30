@@ -14,16 +14,12 @@ df_filtered <- m2hepprep_raw %>%
 
 df_filtered_complete <- df_filtered[, colSums(is.na(df_filtered)) == 0]
 
-# ---------------------------
 # informed consent
-# ---------------------------
 m2hepprep_consent <- m2hepprep_raw %>%
   filter(redcap_event_name == "Baseline") %>%
   select(any_of(c("record_id", "rc_informed")))
 
-# ---------------------------
 # baseline vars
-# ---------------------------
 
 condom_vars <- c(
   # Female partners
@@ -80,9 +76,7 @@ m2hepprep_baseline_vars <- m2hepprep_raw %>%
   filter(redcap_event_name == "Baseline") %>%
   select(any_of(baseline_vars))
 
-# ---------------------------
 # screening/baseline visit data (SAFE)
-# ---------------------------
 screening_vars <- c(
   "record_id","id_paper","rand_arm","rand_date","is_eligible",
   "sdem_visit","sdem_reside","sdem_lang_mia_2","sdem_age","sdem_oat",
@@ -105,9 +99,7 @@ m2hepprep_baseline <- m2hepprep_raw %>%
   filter(redcap_event_name == "Screening (visit 1)") %>%
   select(any_of(screening_vars))
 
-# ---------------------------
 # prep initiation
-# ---------------------------
 m2hepprep_tx_clean <- m2hepprep_tx_raw %>%
   select(any_of(c("record_id", "rand_to_disp", "within_6_months"))) %>%
   mutate(prep_init = factor(1, levels = c(0, 1), labels = c("No", "Yes"))) %>%
@@ -463,6 +455,8 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     inject_fent_6m = factor(ifelse(sub_6m27 == "Yes", "1", "0"), levels = c("0", "1")),
     inject_meth_6m = factor(ifelse(sub_6m13 == "Yes", "1", "0"), levels = c("0", "1"))
   )
+
+table(m2hepprep_prep_combined$inject_heroin_6m, m2hepprep_prep_combined$sdem_reside, useNA = "ifany")
 
 # sexual risks
 

@@ -1,6 +1,4 @@
-# ============================================================
 # Load libraries and data
-# ============================================================
 
 # stop if script has an error
 options(error = stop)
@@ -17,9 +15,7 @@ m2hepprep_prep_combined <- read.csv("data/m2hepprep_combined.csv")
 # check sex variables
 with(m2hepprep_prep_combined, table(condom_1m, num_sex_partners_3m))
 
-# ============================================================
 # Define LCA variables
-# ============================================================
 lca_vars <- c(
   "syringe_share_6m_bin", "syringe_cooker_6m_bin",
   "syringe_loan_6m_bin", "syringe_reuse_6m_bin",
@@ -38,9 +34,7 @@ lca_vars_cat <- c(
   "condom_1m"
 )
 
-# ============================================================
 # Auxiliary variables
-# ============================================================
 auxiliary_vars <- c(
   "sdem_age_binary",
   "sdem_sex_binary",
@@ -50,16 +44,12 @@ auxiliary_vars <- c(
   "sdem_slep6m_binary"
 )
 
-# ============================================================
 # Create imputation dataset
-# ============================================================
 imputation_data <- m2hepprep_prep_combined[
   c(lca_vars, auxiliary_vars)
 ]
 
-# ============================================================
 # Make variables correct type and format for mice()
-# ============================================================
 
 # binary LCA vars
 imputation_data <- imputation_data %>%
@@ -110,27 +100,21 @@ stopifnot(
   )
 )
 
-# ============================================================
 # Set imputation methods for binary and cat vars
-# ============================================================
 meth <- make.method(imputation_data)
 meth[] <- ""
 
 meth[lca_vars_bin] <- "logreg"  # binary vars
 meth[lca_vars_cat] <- "polr"    # ordered factors
 
-# ============================================================
 # Set auxiliary and LCA vars as predictors
-# ============================================================
 pred <- make.predictorMatrix(imputation_data)
 pred[,] <- 0
 pred[lca_vars, lca_vars] <- 1
 pred[lca_vars, auxiliary_vars] <- 1
 diag(pred) <- 0
 
-# ============================================================
 # Run multiple imputation
-# ============================================================
 set.seed(123)
 
 imp <- mice(
@@ -142,9 +126,7 @@ imp <- mice(
   printFlag = TRUE
 )
 
-# ============================================================
 # Define factor levels
-# ============================================================
 
 levels_condom <- c(
   "No sex past 3 months",
@@ -159,9 +141,7 @@ levels_nsp <- c(
   "Two or more sex partners"
 )
 
-# ============================================================
 # Manually code survey skip logic
-# ============================================================
 
 imputed_datasets_mice <- lapply(seq_len(imp$m), function(i) {
   df <- complete(imp, i)
@@ -188,11 +168,11 @@ imputed_datasets_mice <- lapply(seq_len(imp$m), function(i) {
 completed_data <- imputed_datasets_mice[[1]]
 with(completed_data, table(condom_1m, num_sex_partners_3m))
 
-# ============================================================
 # Verify imputation
-# ============================================================
 completed_data <- imputed_datasets_mice[[1]]
 
 # remaining NAs
 print(colSums(is.na(completed_data[lca_vars])))
 
+# save
+saveRDS(imputed_datasets_mice, "data/imputed_datasets.rds")

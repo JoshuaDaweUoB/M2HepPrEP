@@ -1,6 +1,4 @@
-# ============================================================
 # Load libraries and data
-# ============================================================
 
 # load libraries
 pacman::p_load(dplyr, tidyr, writexl, poLCA, ggplot2, clue, MASS)
@@ -13,9 +11,7 @@ m2hepprep_prep_combined <- read.csv("data/m2hepprep_combined.csv")
 
 options(error = stop)
 
-# ============================================================
 # Define LCA variables
-# ============================================================
 
 lca_vars <- c(
   "syringe_share_6m_bin", "syringe_cooker_6m_bin",
@@ -24,9 +20,7 @@ lca_vars <- c(
   "sexwork_3m"
 )
 
-# ============================================================
 # Complete case coding
-# ============================================================
 
 # ensure poLCA encoding
 m2hepprep_prep_combined[lca_vars] <-
@@ -44,9 +38,7 @@ n <- nrow(m2hepprep_prep_combined_cc)
 
 cat("\nSample size after complete-case restriction:", n, "\n")
 
-# ============================================================
 # Run LCA
-# ============================================================
 
 lca_formula <- as.formula(
   paste("cbind(", paste(lca_vars, collapse = ", "), ") ~ 1")
@@ -71,9 +63,7 @@ for (k in 1:5) {
     verbose = FALSE
   )
 
-# ============================================================
 # Calculate fit statistics
-# ============================================================
 sabic <- lca_model$bic - log(n) * (lca_model$npar - 1) / 2
 
   entropy <- NA
@@ -111,9 +101,7 @@ print(fit_stats)
 # write to Excel
 write_xlsx(fit_stats, "data/lca_fit_stats_CC.xlsx")
 
-# ============================================================
 # Elbow plot
-# ============================================================
 
 elbow_plot <- ggplot(fit_stats, aes(x = NClasses)) +
   geom_line(aes(y = AIC, color = "AIC"), linewidth = 1.2) +
@@ -133,9 +121,7 @@ elbow_plot <- ggplot(fit_stats, aes(x = NClasses)) +
 
 print(elbow_plot)
 
-# ============================================================
 # Final LCA with four classes
-# ============================================================
 
 k_final <- 4
 set.seed(123)
@@ -151,9 +137,7 @@ lca_cc_final <- poLCA(
 
 lca_cc_final
 
-# ==============================================================================
 # Single dataset with final class assignments from lca_cc_final
-# ==============================================================================
 
 # Use the complete-case dataset
 df_ref <- m2hepprep_prep_combined_cc
@@ -229,9 +213,7 @@ wide_table <- freq_by_class %>%
 # Save table
 writexl::write_xlsx(wide_table, "data/class_patterns_categorical_wide_finalCC.xlsx")
 
-# ==============================================================================
 # Assign final class from lca_cc_final to the complete-case dataset
-# ==============================================================================
 
 m2hepprep_prep_combined_lca <- m2hepprep_prep_combined_cc
 
@@ -250,9 +232,7 @@ m2hepprep_prep_combined_lca$class_factor_imputed <- factor(
   )[1:k_final]  # in case k_final < 4
 )
 
-# ---------------------------
 # Inspect class distribution
-# ---------------------------
 cat("\nClass distribution (final complete-case LCA):\n")
 print(table(m2hepprep_prep_combined_lca$class_factor_imputed))
 
@@ -263,9 +243,7 @@ write.csv(
   row.names = FALSE
 )
 
-# ==============================================================================
 # Poisson regression with final complete-case LCA
-# ==============================================================================
 
 # Load necessary packages for robust SEs
 pacman::p_load(sandwich, lmtest, writexl, dplyr)
@@ -293,9 +271,7 @@ m2hepprep_prep_combined_lca$class_factor_imputed <- relevel(
   ref = "High Injecting / Low Sexual Risk"
 )
 
-# ---------------------------
 # Unadjusted Poisson regression
-# ---------------------------
 mod_class_finalCC <- glm(
   prep_init_num ~ class_factor_imputed + sdem_reside + rand_arm,
   data = m2hepprep_prep_combined_lca,
@@ -314,9 +290,7 @@ poisson_class_results_finalCC <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# ---------------------------
 # Adjusted Poisson regression
-# ---------------------------
 mod_class_adj_finalCC <- glm(
   prep_init_num ~ class_factor_imputed + sdem_reside + rand_arm +
     sdem_sex_binary + sdem_age + oat_current + incarc_6m_bin + sdem_slep6m_binary,
@@ -336,9 +310,7 @@ poisson_class_adjusted_results_finalCC <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# ---------------------------
 # PrEP initiation summary by class
-# ---------------------------
 prep_by_class_finalCC <- table(
   m2hepprep_prep_combined_lca$class_factor_imputed,
   m2hepprep_prep_combined_lca$prep_init
@@ -362,9 +334,7 @@ prep_summary_finalCC <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# ---------------------------
 # Save results to Excel
-# ---------------------------
 write_xlsx(
   list(
     "Poisson_class_unadjusted_finalCC" = poisson_class_results_finalCC,
@@ -374,9 +344,7 @@ write_xlsx(
   "data/poisson_class_results_finalCC.xlsx"
 )
 
-# ==============================================================================
 # Risk perception and PrEP initiation — COMPLETE CASE
-# ==============================================================================
 
 pacman::p_load(sandwich, lmtest, nnet, dplyr, writexl)
 
@@ -396,9 +364,7 @@ m2hepprep_prep_combined_lca$class_factor_imputed <- factor(
   )[1:k_final]
 )
 
-# ---------------------------
 # Poisson regression: HIV risk perception -> PrEP initiation
-# ---------------------------
 
 # Set reference level
 m2hepprep_prep_combined_lca$hiv_risk_perception_3cat <- 
@@ -448,9 +414,7 @@ res_prep_3cat_adj_finalCC <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# ---------------------------
 # Class membership models: HIV risk perception -> LCA class
-# ---------------------------
 
 # Reference class
 m2hepprep_prep_combined_lca$class_factor_imputed <- 
@@ -510,9 +474,7 @@ res_cls_3cat_adj_finalCC <- do.call(
   })
 )
 
-# ---------------------------
 # PrEP initiation summary by HIV risk perception
-# ---------------------------
 prep_by_rp_3cat_finalCC <- table(
   m2hepprep_prep_combined_lca$hiv_risk_perception_3cat,
   m2hepprep_prep_combined_lca$prep_init
@@ -535,9 +497,7 @@ prep_summary_rp_3cat_finalCC <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# ---------------------------
 # Risk perception distribution within class
-# ---------------------------
 rp_by_class_3cat_finalCC <- table(
   m2hepprep_prep_combined_lca$class_factor_imputed,
   m2hepprep_prep_combined_lca$hiv_risk_perception_3cat
@@ -558,9 +518,7 @@ rp_class_summary_3cat_finalCC <- do.call(
   })
 )
 
-# ---------------------------
 # Save results
-# ---------------------------
 write_xlsx(
   list(
     PrepInit_RP_3cat_Unadj      = res_prep_3cat_finalCC,
