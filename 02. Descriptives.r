@@ -10,7 +10,11 @@ setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/
 # load clean data
 m2hepprep_prep_combined <- read.csv("data/m2hepprep_combined.csv")
 
+# simple tabs
+table(m2hepprep_prep_combined$syringe_share_6m_bin, m2hepprep_prep_combined$sdem_reside)
+
 # Create City variable
+table(m2hepprep_prep_combined$sdem_reside)
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
   mutate(
     City = case_when(
@@ -32,10 +36,10 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     fentanyl = recode(inject_fent_6m, "0" = "No", "1" = "Yes"),
     cocaine = recode(inject_cocaine_6m, "0" = "No", "1" = "Yes"),
     amphetamines = recode(inject_meth_6m, "0" = "No", "1" = "Yes"),
-    share_material = recode(syringe_cooker_6m_bin, "0" = "No", "1" = "Yes"),
+    share_material = recode(syringe_share_6m_bin, "0" = "No", "1" = "Yes"),
     loan_material = recode(syringe_loan_6m_bin, "0" = "No", "1" = "Yes"),
     reuse_material = recode(syringe_reuse_6m_bin, "0" = "No", "1" = "Yes"),
-    share_equipment = recode(syringe_share_6m_bin, "0" = "No", "1" = "Yes"),
+    share_equipment = recode(syringe_cooker_6m_bin, "0" = "No", "1" = "Yes"),
     inject_days = recode(days_used_1m_3cat, "0" = "0–14", "1" = "15–24", "2" = "25+"),
     partners = recode(num_sex_partners_3m, "0" = "None", "1" = "One", "2" = "Two or more"),
     condom_cat = case_when(
