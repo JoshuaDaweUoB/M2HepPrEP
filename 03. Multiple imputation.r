@@ -18,20 +18,24 @@ with(m2hepprep_prep_combined, table(condom_1m, num_sex_partners_3m))
 # Define LCA variables
 lca_vars <- c(
   "syringe_share_6m_bin", "syringe_cooker_6m_bin",
-  "syringe_loan_6m_bin", "syringe_reuse_6m_bin",
-  "num_sex_partners_3m", "condom_1m", 
-  "sexwork_3m"
+  "syringe_reuse_6m_bin",
+  "num_sex_partners_3m", 
+  "condom_1m", 
+  "sexwork_3m", 
+  "days_used_1m_3cat"
 )
 
 lca_vars_bin <- c(
-  "syringe_share_6m_bin", "syringe_cooker_6m_bin",
-  "syringe_loan_6m_bin", "syringe_reuse_6m_bin",
+  "syringe_share_6m_bin", 
+  "syringe_cooker_6m_bin",
+  "syringe_reuse_6m_bin",
   "sexwork_3m"
 )
 
 lca_vars_cat <- c(
   "num_sex_partners_3m",
-  "condom_1m"
+  "condom_1m",
+  "days_used_1m_3cat"
 )
 
 # Auxiliary variables
@@ -43,6 +47,10 @@ auxiliary_vars <- c(
   "incarc_6m_bin",
   "sdem_slep6m_binary"
 )
+
+# number missing an LCA variable
+sum(!complete.cases(m2hepprep_prep_combined[, lca_vars]))
+sum(complete.cases(m2hepprep_prep_combined[, lca_vars]))
 
 # Create imputation dataset
 imputation_data <- m2hepprep_prep_combined[
@@ -77,6 +85,16 @@ imputation_data <- imputation_data %>%
       "No sex past 3 months",
       "One sex partner",
       "Two or more sex partners"
+    ),
+    ordered = TRUE
+  )) %>%
+  mutate(days_used_1m_3cat = factor(
+    days_used_1m_3cat,
+    levels = c(0, 1, 2),
+    labels = c(
+      "0-14",
+      "15-29",
+      "Daily"
     ),
     ordered = TRUE
   ))

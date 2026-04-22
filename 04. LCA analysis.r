@@ -14,21 +14,24 @@ readRDS("data/imputed_datasets.rds")
 
 # Define LCA variables
 lca_vars <- c(
-  "syringe_share_6m_bin", "syringe_cooker_6m_bin",
-  "syringe_loan_6m_bin", "syringe_reuse_6m_bin",
+  "syringe_share_6m_bin", 
+  "syringe_cooker_6m_bin",
+  "syringe_reuse_6m_bin",
   "num_sex_partners_3m", "condom_1m", 
-  "sexwork_3m"
+  "sexwork_3m", "days_used_1m_3cat"
 )
 
 lca_vars_bin <- c(
-  "syringe_share_6m_bin", "syringe_cooker_6m_bin",
-  "syringe_loan_6m_bin", "syringe_reuse_6m_bin",
+  "syringe_share_6m_bin", 
+  "syringe_cooker_6m_bin",
+  "syringe_reuse_6m_bin",
   "sexwork_3m"
 )
 
 lca_vars_cat <- c(
   "num_sex_partners_3m",
-  "condom_1m"
+  "condom_1m",
+  "days_used_1m_3cat"
 )
 
 
@@ -326,6 +329,43 @@ cat("Perfect agreement rate:", round(agreement_rate * 100, 1), "%\n\n")
 # class distribution
 print(table(final_class_assignment))
 
+# BCH weights account for classification uncertainty
+
+# posterior probabilities for each person from each imputation
+bch_weights_by_imp <- lapply(seq_len(n_imp), function(i) {
+  posterior <- lca_imputed_results[[i]]$posterior
+  predclass <- lca_imputed_results[[i]]$predclass
+  
+  # posterior probability of assigned class for each person
+  posterior_assigned <- sapply(seq_along(predclass), function(j) {
+    posterior[j, predclass[j]]
+  })
+  
+  posterior_assigned
+})
+
+# overall class proportions (pooled across imputations)
+class_props <- table(final_class_assignment) / n_participants
+
+# BCH weights: pool across imputations
+bch_weights <- sapply(seq_len(n_participants), function(i) {
+  # posterior probability across imputations
+  mean_posterior <- mean(sapply(bch_weights_by_imp, function(x) x[i]))
+  
+  # assigned class for this person
+  assigned_class <- final_class_assignment[i]
+  
+  # BCH weight: posterior / marginal proportion
+  weight <- mean_posterior / as.numeric(class_props[as.character(assigned_class)])
+  weight
+})
+
+cat("\nBCH Weights Summary:\n")
+cat("Mean weight:", round(mean(bch_weights, na.rm = TRUE), 3), "\n")
+cat("Min weight:", round(min(bch_weights, na.rm = TRUE), 3), "\n")
+cat("Max weight:", round(max(bch_weights, na.rm = TRUE), 3), "\n")
+cat("SD weight:", round(sd(bch_weights, na.rm = TRUE), 3), "\n\n")
+
 # First dataset with final class
 
 df_ref <- imputed_datasets_lca[[1]]
@@ -335,11 +375,11 @@ df_ref$Class <- final_class_assignment
 lca_vars_selected <- c(
   "syringe_share_6m_bin",
   "syringe_cooker_6m_bin",
-  "syringe_loan_6m_bin",
   "syringe_reuse_6m_bin",
   "sexwork_3m",
   "num_sex_partners_3m",
-  "condom_1m"
+  "condom_1m",
+  "days_used_1m_3cat"
 )
 
 # LCA vars as factors
@@ -349,19 +389,13 @@ df_ref <- df_ref %>%
 # variable labels using recode with default
 df_ref <- df_ref %>%
   mutate(
-    syringe_share_6m_bin  = recode(syringe_share_6m_bin, "1" = "No", "2" = "Yes", .default = NA_character_),
-    syringe_cooker_6m_bin = recode(syringe_cooker_6m_bin, "1" = "No", "2" = "Yes", .default = NA_character_),
-    syringe_loan_6m_bin   = recode(syringe_loan_6m_bin, "1" = "No", "2" = "Yes", .default = NA_character_),
-    syringe_reuse_6m_bin  = recode(syringe_reuse_6m_bin, "1" = "No", "2" = "Yes", .default = NA_character_),
-    sexwork_3m            = recode(sexwork_3m, "1" = "No", "2" = "Yes", .default = NA_character_),
-    num_sex_partners_3m   = recode(num_sex_partners_3m, "1" = "None", "2" = "One", "3" = "Two or more", .default = NA_character_),
-    condom_1m             = recode(condom_1m,
-                                   "1" = "No sex past month",
-                                   "2" = "No sex past 3 months",
-                                   "3" = "Very often / Always",
-                                   "4" = "Never / Rarely / Some of the time",
-                                   .default = NA_character_)
-  )
+    syringe_share_6m_bin          = recode(syringe_share_6m_bin, "1" = "No", "2" = "Yes", .default = NA_character_),
+    syringe_cooker_6m_bin         = recode(syringe_cooker_6m_bin, "1" = "No", "2" = "Yes", .default = NA_character_),
+    syringe_reuse_6m_bin          = recode(syringe_reuse_6m_bin, "1" = "No", "2" = "Yes", .default = NA_character_),
+    sexwork_3m                    = recode(sexwork_3m, "1" = "No", "2" = "Yes", .default = NA_character_),
+    num_sex_partners_3m           = recode(num_sex_partners_3m, "1" = "None", "2" = "One", "3" = "Two or more", .default = NA_character_),
+    condom_1m                     = recode(condom_1m, "1" = "No sex past month", "2" = "No sex past 3 months", "3" = "Very often / Always", "4" = "Never / Rarely / Some of the time", .default = NA_character_),
+    days_used_1m_3cat             = recode(days_used_1m_3cat, "1" = "0-14 days", "2" = "15-29 days", "3" = "Daily", .default = NA_character_))
 
 # counts and percentages per class
 freq_by_class <- lca_vars_selected %>%
@@ -532,28 +566,31 @@ writexl::write_xlsx(
 # assign classes
 m2hepprep_prep_combined_lca <- m2hepprep_prep_combined
 m2hepprep_prep_combined_lca$class_imputed <- final_class_assignment
+m2hepprep_prep_combined_lca$bch_weight <- bch_weights
+
+sum(is.na(m2hepprep_prep_combined$prep_init_num))
 
 m2hepprep_prep_combined_lca$class_factor_imputed <- factor(
   final_class_assignment,
   levels = 1:k_final,
   labels = c(
-    "High Injecting / Low Sexual Risk (n=120)",           # Class 1
-    "High Injecting / High Sexual Risk (n=77)",           # Class 2
-    "Low Injecting Low Sexual Risk (n=172)",              # Class 3
-    "Low Injecting / High Sexual Risk (n=75)"             # Class 4
+    "High Injecting / Low Sexual Risk (n=136)",             # Class 3
+    "High Injecting / High Sexual Risk (n=83)",             # Class 4 
+    "Low Injecting / Low Sexual Risk (n=157)",              # Class 1
+    "Low Injecting / High Sexual Risk (n=68)"               # Class 2
   )
 )
 
 # levels for plotting
 target_levels <- tibble::tribble(
   ~Variable,                 ~Level_Label,                                          ~Domain,           ~Indicator,
-  "syringe_share_6m_bin",    "Yes",                                                "Injecting",       "Shared syringe \npast six months",
-  "syringe_cooker_6m_bin",   "Yes",                                                "Injecting",       "Shared cooker \npast six months",
-  "syringe_loan_6m_bin",     "Yes",                                                "Injecting",       "Loaned syringe \npast six months",
-  "syringe_reuse_6m_bin",    "Yes",                                                "Injecting",       "Reused syringe \npast six months",
-  "sexwork_3m",              "Yes",                                                "Sexual Risk",     "Sex work \npast three months",
-  "num_sex_partners_3m",     "Two or more",                                        "Sexual Risk",     "≥2 partners \npast three months",
-  "condom_1m",               "Never / Rarely / Some of the time",                  "Sexual Risk",     "Inconsistent \ncondom use \npast month",
+  "syringe_share_6m_bin",            "Yes",                                                "Injecting",       "Shared syringe \npast six months",
+  "syringe_cooker_6m_bin",           "Yes",                                                "Injecting",       "Shared cooker \npast six months",
+  "syringe_reuse_6m_bin",            "Yes",                                                "Injecting",       "Reused syringe \npast six months",
+  "days_used_1m_3cat",               "Yes",                                                "Injecting",       "Numer days used \npast month",
+  "sexwork_3m",                      "Yes",                                                "Sexual Risk",     "Sex work \npast three months",
+  "num_sex_partners_3m",             "Two or more",                                        "Sexual Risk",     "≥2 partners \npast three months",
+  "condom_1m",                       "Never / Rarely / Some of the time",                  "Sexual Risk",     "Inconsistent \ncondom use \npast month",
 ) %>%
   mutate(Order = row_number())
 
@@ -638,3 +675,7 @@ print(table(m2hepprep_prep_combined_lca$class_factor_imputed))
 
 # save data
 write.csv(m2hepprep_prep_combined_lca, "data/m2hepprep_combined_lca.csv", row.names = FALSE)
+saveRDS(lca_imputed_results, "data/lca_imputed_results.rds")
+saveRDS(imputed_datasets_mice, "data/imputed_datasets_mice.rds")
+saveRDS(class_assignments, "data/class_assignments.rds")
+saveRDS(bch_weights, "data/bch_weights.rds")

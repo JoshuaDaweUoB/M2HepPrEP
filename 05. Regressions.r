@@ -1,82 +1,92 @@
-# Load libraries and data
+# load libraries and data
 
-# stop if script has an error
 options(error = stop)
 
-# libraries
-pacman::p_load(dplyr, mice, writexl, readxl, poLCA, ggplot2, clue, sandwich, lmtest, MASS)
+pacman::p_load(dplyr, tidyr, mice, writexl, readxl, poLCA,
+               ggplot2, clue, sandwich, lmtest, MASS, nnet)
 
-# set working directory
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/Montreal paper/")
 
-# Poisson regression with imputed class assignments
-
-# load data
 m2hepprep_prep_combined_lca <- read.csv("data/m2hepprep_combined_lca.csv")
 
-# high injecting low sexual risk as the reference category
-m2hepprep_prep_combined_lca$class_factor_imputed <-
-  factor(
-    m2hepprep_prep_combined_lca$class_factor_imputed,
-    ordered = FALSE
-  )
+# Load BCH weights
+bch_weights <- readRDS("data/bch_weights.rds")
+m2hepprep_prep_combined_lca$bch_weight <- bch_weights
 
-m2hepprep_prep_combined_lca$class_factor_imputed <-
-  relevel(
-    m2hepprep_prep_combined_lca$class_factor_imputed,
-    ref = "High Injecting / Low Sexual Risk"
-  )
+m2hepprep_prep_combined_lca$class_factor_imputed <- factor(
+  m2hepprep_prep_combined_lca$class_factor_imputed,
+  ordered = FALSE
+)
 
-# unadjusted model
-mod_class_imp <- glm(
+m2hepprep_prep_combined_lca$class_factor_imputed <- relevel(
+  m2hepprep_prep_combined_lca$class_factor_imputed,
+  ref = "Low Injecting / Low Sexual Risk (n=157)"
+)
+
+# Check classification certainty (diagnostic info only)
+post <- lca_imputed_results[[1]]$posterior
+
+# classification certainty per person (max posterior)
+max_prob <- apply(post, 1, max)
+
+# original data format with BCH weights
+df <- m2hepprep_prep_combined_lca
+
+# partially adjusted 
+
+bch_model_simple <- glm(
   prep_init_num ~ class_factor_imputed + sdem_reside + rand_arm,
-  data = m2hepprep_prep_combined_lca,
-  family = poisson(link = "log")
+  data = df,
+  family = poisson(link = "log"),
+  weights = bch_weight
 )
 
-robust_se_imp <- sqrt(diag(vcovHC(mod_class_imp, type = "HC0")))
-coefs_imp <- coeftest(mod_class_imp, vcov. = vcovHC(mod_class_imp, type = "HC0"))
+robust_se_simple <- sqrt(diag(vcovHC(bch_model_simple, type = "HC0")))
+coefs_simple <- coeftest(bch_model_simple, vcov. = vcovHC(bch_model_simple, type = "HC0"))
 
-poisson_class_results_imp <- data.frame(
-  term = rownames(coefs_imp),
-  estimate = exp(coefs_imp[, "Estimate"]),
-  conf.low = exp(coefs_imp[, "Estimate"] - 1.96 * robust_se_imp),
-  conf.high = exp(coefs_imp[, "Estimate"] + 1.96 * robust_se_imp),
-  p.value = coefs_imp[, "Pr(>|z|)"],
-  stringsAsFactors = FALSE
+bch_results_simple <- data.frame(
+  term = rownames(coefs_simple),
+  rr = exp(coefs_simple[, "Estimate"]),
+  conf.low = exp(coefs_simple[, "Estimate"] - 1.96 * robust_se_simple),
+  conf.high = exp(coefs_simple[, "Estimate"] + 1.96 * robust_se_simple),
+  p.value = coefs_simple[, "Pr(>|z|)"],
+  row.names = NULL
 )
 
-# adjusted model
-mod_class_adjusted_imp <- glm(
-  prep_init_num ~ class_factor_imputed + sdem_reside + rand_arm +
-    sdem_sex_binary + sdem_age + oat_current + incarc_6m_bin + sdem_slep6m_binary,
-  data = m2hepprep_prep_combined_lca,
-  family = poisson(link = "log")
+# fully adjusted
+
+bch_model_adj <- glm(
+  prep_init_num ~ class_factor_imputed +
+    sdem_reside + rand_arm +
+    sdem_sex_binary + sdem_age +
+    oat_current + incarc_6m_bin + sdem_slep6m_binary,
+  data = df,
+  family = poisson(link = "log"),
+  weights = bch_weight
 )
 
-robust_se_adj_imp <- sqrt(diag(vcovHC(mod_class_adjusted_imp, type = "HC0")))
-coefs_adj_imp <- coeftest(mod_class_adjusted_imp, vcov. = vcovHC(mod_class_adjusted_imp, type = "HC0"))
+robust_se_adj <- sqrt(diag(vcovHC(bch_model_adj, type = "HC0")))
+coefs_adj <- coeftest(bch_model_adj, vcov. = vcovHC(bch_model_adj, type = "HC0"))
 
-poisson_class_adjusted_results_imp <- data.frame(
-  term = rownames(coefs_adj_imp),
-  estimate = exp(coefs_adj_imp[, "Estimate"]),
-  conf.low = exp(coefs_adj_imp[, "Estimate"] - 1.96 * robust_se_adj_imp),
-  conf.high = exp(coefs_adj_imp[, "Estimate"] + 1.96 * robust_se_adj_imp),
-  p.value = coefs_adj_imp[, "Pr(>|z|)"],
-  stringsAsFactors = FALSE
+bch_results_adj <- data.frame(
+  term = rownames(coefs_adj),
+  rr = exp(coefs_adj[, "Estimate"]),
+  conf.low = exp(coefs_adj[, "Estimate"] - 1.96 * robust_se_adj),
+  conf.high = exp(coefs_adj[, "Estimate"] + 1.96 * robust_se_adj),
+  p.value = coefs_adj[, "Pr(>|z|)"],
+  row.names = NULL
 )
 
-# Create PrEP initiation summary by class
+# descriptive table (not weighted regression)
 
 prep_by_class <- table(
   m2hepprep_prep_combined_lca$class_factor_imputed,
   m2hepprep_prep_combined_lca$prep_init
 )
 
-# ensure both "No" and "Yes" columns exist
-if(!all(c("No", "Yes") %in% colnames(prep_by_class))) {
+if (!all(c("No", "Yes") %in% colnames(prep_by_class))) {
   missing_cols <- setdiff(c("No", "Yes"), colnames(prep_by_class))
-  for(col in missing_cols) prep_by_class <- cbind(prep_by_class, 0)
+  for (col in missing_cols) prep_by_class <- cbind(prep_by_class, 0)
   colnames(prep_by_class) <- c("No", "Yes")
 }
 
@@ -87,18 +97,14 @@ prep_summary <- data.frame(
   n_no = prep_by_class[, "No"],
   n_yes = prep_by_class[, "Yes"],
   prop_no = round(prep_by_class_prop[, "No"], 3),
-  prop_yes = round(prep_by_class_prop[, "Yes"], 3),
-  stringsAsFactors = FALSE
+  prop_yes = round(prep_by_class_prop[, "Yes"], 3)
 )
 
-# Save results to Excel
-
 write_xlsx(list(
-  "Poisson_class_unadjusted_imputed" = poisson_class_results_imp,
-  "Poisson_class_adjusted_imputed" = poisson_class_adjusted_results_imp,
-  "Pooled_fit_statistics" = fit_medians,       # updated from pooled_fit_stats
-  "PrEP_by_class" = prep_summary
-), "data/poisson_class_results_imputed.xlsx")
+  bch_simple = bch_results_simple,
+  bch_adjusted = bch_results_adj,
+  prep_by_class = prep_summary
+), "data/poisson_class_results_bch.xlsx")
 
 # Risk perception and PrEP initiation
 

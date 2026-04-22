@@ -383,6 +383,8 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     )
   ) 
 
+table(m2hepprep_prep_combined$sdem_idu6m___7, useNA = "ifany")
+
 # injecting risks
 m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
   mutate(
@@ -391,7 +393,7 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
         sdem_idu6m___1 == "Use a needle that you knew or suspected someone else had used before" |
         sdem_idu6m___3 == "Ever skip cleaning your needle with bleach or boiling it after you were done" ~ "1",
         TRUE ~ "0"
-      ),
+      ),  
       levels = c("0", "1")
     ),
     syringe_loan_6m_bin = factor(
@@ -403,10 +405,17 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
       ),
       levels = c("0", "1")
     ),
+    syringe_other_inject_6m_bin = factor(
+      case_when(
+        sdem_idu6m___6 == "Allow someone else to inject with drugs" ~ "1",
+        TRUE ~ "0"
+      ),
+      levels = c("0", "1")
+    ),
     syringe_cooker_6m_bin = factor(
       case_when(
          sdem_idu6m___2 == "Use someone else's rinse water, cooker, or cotton" ~ "1",
-        TRUE ~ "0"
+         TRUE ~ "0"
       ),
       levels = c("0", "1")
     ),
@@ -441,8 +450,8 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     ),
     days_used_1m_3cat = factor(
       case_when(
-        days_used_1m > 24 ~ "2", 
-        days_used_1m < 25 & days_used_1m > 14 ~ "1",
+        days_used_1m >= 30 ~ "2", 
+        days_used_1m < 30 & days_used_1m >= 15 ~ "1",
         days_used_1m < 15 ~ "0",
         TRUE ~ NA_character_
       ),
@@ -456,7 +465,9 @@ m2hepprep_prep_combined <- m2hepprep_prep_combined %>%
     inject_meth_6m = factor(ifelse(sub_6m13 == "Yes", "1", "0"), levels = c("0", "1"))
   )
 
+table(m2hepprep_prep_combined$syringe_other_inject_6m_bin, useNA = "ifany")
 table(m2hepprep_prep_combined$inject_heroin_6m, m2hepprep_prep_combined$sdem_reside, useNA = "ifany")
+table(m2hepprep_prep_combined$days_used_1m_3cat, useNA = "ifany")
 
 # sexual risks
 
