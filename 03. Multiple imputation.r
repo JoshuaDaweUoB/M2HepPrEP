@@ -1,5 +1,3 @@
-# Load libraries and data
-
 # stop if script has an error
 options(error = stop)
 
@@ -12,10 +10,7 @@ setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/
 # load clean data
 m2hepprep_prep_combined <- read.csv("data/m2hepprep_combined.csv")
 
-# check sex variables
-with(m2hepprep_prep_combined, table(condom_1m, num_sex_partners_3m))
-
-# Define LCA variables
+# LCA variables
 lca_vars <- c(
   "syringe_share_6m_bin", "syringe_cooker_6m_bin",
   "syringe_reuse_6m_bin",
@@ -38,7 +33,7 @@ lca_vars_cat <- c(
   "days_used_1m_3cat"
 )
 
-# Auxiliary variables
+# auxiliary variables
 auxiliary_vars <- c(
   "sdem_age_binary",
   "sdem_sex_binary",
@@ -52,12 +47,12 @@ auxiliary_vars <- c(
 sum(!complete.cases(m2hepprep_prep_combined[, lca_vars]))
 sum(complete.cases(m2hepprep_prep_combined[, lca_vars]))
 
-# Create imputation dataset
+# imputation dataset
 imputation_data <- m2hepprep_prep_combined[
   c(lca_vars, auxiliary_vars)
 ]
 
-# Make variables correct type and format for mice()
+# correct type and format for mice()
 
 # binary LCA vars
 imputation_data <- imputation_data %>%
@@ -144,7 +139,7 @@ imp <- mice(
   printFlag = TRUE
 )
 
-# Define factor levels
+# factor levels
 
 levels_condom <- c(
   "No sex past 3 months",
@@ -159,7 +154,7 @@ levels_nsp <- c(
   "Two or more sex partners"
 )
 
-# Manually code survey skip logic
+# code survey skip logic
 
 imputed_datasets_mice <- lapply(seq_len(imp$m), function(i) {
   df <- complete(imp, i)

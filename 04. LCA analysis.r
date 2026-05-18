@@ -1,5 +1,3 @@
-# Load libraries and data
-
 # stop if script has an error
 options(error = stop)
 
@@ -10,9 +8,9 @@ pacman::p_load(dplyr, mice, writexl, readxl, poLCA, ggplot2, clue, sandwich, lmt
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/Montreal paper/")
 
 # load
-readRDS("data/imputed_datasets.rds")
+imputed_datasets_mice <- readRDS("data/imputed_datasets.rds")
 
-# Define LCA variables
+# LCA variables
 lca_vars <- c(
   "syringe_share_6m_bin", 
   "syringe_cooker_6m_bin",
@@ -34,8 +32,7 @@ lca_vars_cat <- c(
   "days_used_1m_3cat"
 )
 
-
-# Auxiliary variables
+# auxiliary variables
 auxiliary_vars <- c(
   "sdem_age_binary",
   "sdem_sex_binary",
@@ -45,8 +42,7 @@ auxiliary_vars <- c(
   "sdem_slep6m_binary"
 )
 
-
-# Prepare datasets for poLCA
+# datasets for poLCA
 prepare_for_poLCA <- function(df, vars) {
   df[vars] <- lapply(df[vars], function(x) {
     x <- factor(x)
@@ -116,7 +112,7 @@ writexl::write_xlsx(
 
 # Multiple imputation latent class analysis
 
-# Number of imputations
+# number of imputations
 n_imp <- length(imputed_datasets_lca)
 
 # LCA formula
@@ -124,7 +120,7 @@ lca_formula <- as.formula(
   paste0("cbind(", paste(lca_vars, collapse = ","), ") ~ 1")
 )
 
-# Calculate fit statistics
+# fit statistics
 calculate_fit_stats <- function(lca_model, k, n) {
   sabic <- lca_model$bic - log(n) * (lca_model$npar - 1) / 2
   
@@ -156,7 +152,7 @@ calculate_fit_stats <- function(lca_model, k, n) {
   )
 }
 
-# Run LCA on all imputed datasets
+# run LCA on all imputed datasets
 set.seed(123)
 
 fit_stats_all <- vector("list", n_imp)
@@ -184,8 +180,6 @@ for (imp_idx in seq_len(n_imp)) {
   fit_stats_all[[imp_idx]] <- do.call(rbind, fit_stats_imp)
 }
 
-# Combine fit statistics across imputations
-
 # combine fit statistics across imputations
 all_fit_stats <- do.call(rbind, lapply(seq_len(n_imp), function(i) {
   cbind(Imputation = i, fit_stats_all[[i]])
@@ -198,7 +192,6 @@ average_fit_stats <- all_fit_stats %>%
       c(AIC, BIC, SABIC, Entropy, LL, ChiSquare, df,
         NClass1, NClass2, NClass3, NClass4, NClass5),
       list(
-        mean = ~ mean(.x, na.rm = TRUE),
         median = ~ median(.x, na.rm = TRUE)
       ),
       .names = "{.col}_{.fn}"
@@ -210,12 +203,12 @@ average_fit_stats <- all_fit_stats %>%
 write_xlsx(
   list(
     LCA_Fit_Imputations = all_fit_stats,
-    LCA_Fit_Averages        = average_fit_stats
+    LCA_Fit_Averages    = average_fit_stats
   ),
   "data/lca_fit_stats_imputed.xlsx"
 )
 
-# Summarise fit statistics
+# fit statistics
 fit_summary <- all_fit_stats %>%
   group_by(NClasses) %>%
   summarise(
@@ -243,7 +236,7 @@ elbow_plot <- ggplot(fit_summary, aes(x = NClasses)) +
 
 print(elbow_plot)
 
-# Model fit statistics across imputations
+# model fit statistics across imputations
 
 fit_medians <- all_fit_stats %>%
   group_by(NClasses) %>%
@@ -259,7 +252,7 @@ print(fit_medians)
 # final number of classes
 k_final <- 4
 
-# Fit final LCA model across imputations
+# final LCA model across imputations
 
 n_imp <- length(imputed_datasets_lca)
 n_participants <- nrow(imputed_datasets_lca[[1]])
@@ -281,7 +274,7 @@ for (i in seq_len(n_imp)) {
   )
 }
 
-# Class labels across imputations
+# class labels across imputations
 
 # rows with any NA in LCA variables, across all imputations
 lapply(seq_along(imputed_datasets_mice), function(i) {
@@ -506,7 +499,7 @@ wide_aux_city <- tidyr::pivot_wider(
   names_sep   = "_"
 )
 
-# Combine Overall + City tables
+# combine Overall + City tables
 
 levels_overall_by_city_aux <- overall_aux %>%
   dplyr::left_join(
@@ -526,8 +519,7 @@ for (nm in c(
   }
 }
 
-# Add formatted columns
-
+# formatted columns
 levels_overall_by_city_aux <- levels_overall_by_city_aux %>%
   dplyr::mutate(
     Overall_fmt = sprintf(
@@ -568,16 +560,14 @@ m2hepprep_prep_combined_lca <- m2hepprep_prep_combined
 m2hepprep_prep_combined_lca$class_imputed <- final_class_assignment
 m2hepprep_prep_combined_lca$bch_weight <- bch_weights
 
-sum(is.na(m2hepprep_prep_combined$prep_init_num))
-
 m2hepprep_prep_combined_lca$class_factor_imputed <- factor(
   final_class_assignment,
   levels = 1:k_final,
   labels = c(
-    "High Injecting / Low Sexual Risk (n=136)",             # Class 3
-    "High Injecting / High Sexual Risk (n=83)",             # Class 4 
-    "Low Injecting / Low Sexual Risk (n=157)",              # Class 1
-    "Low Injecting / High Sexual Risk (n=68)"               # Class 2
+    "Low Injecting / Low Sexual Risk (n=157)",               # Class 1
+    "Low Injecting / High Sexual Risk (n=68)",               # Class 2 
+    "High Injecting / Low Sexual Risk (n=136)",              # Class 3
+    "High Injecting / High Sexual Risk (n=83)"               # Class 4
   )
 )
 
@@ -587,7 +577,7 @@ target_levels <- tibble::tribble(
   "syringe_share_6m_bin",            "Yes",                                                "Injecting",       "Shared syringe \npast six months",
   "syringe_cooker_6m_bin",           "Yes",                                                "Injecting",       "Shared cooker \npast six months",
   "syringe_reuse_6m_bin",            "Yes",                                                "Injecting",       "Reused syringe \npast six months",
-  "days_used_1m_3cat",               "Yes",                                                "Injecting",       "Numer days used \npast month",
+  "days_used_1m_3cat",               "Daily",                                              "Injecting",       "Number days used \npast month",
   "sexwork_3m",                      "Yes",                                                "Sexual Risk",     "Sex work \npast three months",
   "num_sex_partners_3m",             "Two or more",                                        "Sexual Risk",     "≥2 partners \npast three months",
   "condom_1m",                       "Never / Rarely / Some of the time",                  "Sexual Risk",     "Inconsistent \ncondom use \npast month",

@@ -1,8 +1,6 @@
-# load libraries and data
-
 options(error = stop)
 
-pacman::p_load(dplyr, tidyr, mice, writexl, readxl, poLCA,
+pacman::p_load(dplyr, tidyr, mice, writexl, readxl, 
                ggplot2, clue, sandwich, lmtest, MASS, nnet)
 
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/Montreal paper/")
@@ -55,10 +53,46 @@ bch_results_simple <- data.frame(
 
 # fully adjusted
 
+# descriptives
+
+vars_to_summarise <- c(
+  "sdem_reside",
+  "rand_arm",
+  "sdem_sex_binary",
+  "sdem_age_binary",
+  "oat_current",
+  "incarc_6m_bin",
+  "sdem_slep6m_binary"
+)
+
+prep_summaries_other <- do.call(
+  rbind,
+  lapply(vars_to_summarise, function(var) {
+
+    tab <- table(
+      m2hepprep_prep_combined_lca[[var]],
+      m2hepprep_prep_combined_lca$prep_init
+    )
+
+    prop_tab <- prop.table(tab, 1)
+
+    data.frame(
+      variable = var,
+      level = rownames(tab),
+      n_no = tab[, "No"],
+      n_yes = tab[, "Yes"],
+      prop_no = round(prop_tab[, "No"], 3),
+      prop_yes = round(prop_tab[, "Yes"], 3),
+      row.names = NULL
+    )
+  })
+)
+
+# model
 bch_model_adj <- glm(
   prep_init_num ~ class_factor_imputed +
     sdem_reside + rand_arm +
-    sdem_sex_binary + sdem_age +
+    sdem_sex_binary + sdem_age_binary +
     oat_current + incarc_6m_bin + sdem_slep6m_binary,
   data = df,
   family = poisson(link = "log"),
@@ -76,7 +110,7 @@ bch_results_adj <- data.frame(
   p.value = coefs_adj[, "Pr(>|z|)"],
   row.names = NULL
 )
-
+View(bch_results_adj)
 # descriptive table (not weighted regression)
 
 prep_by_class <- table(
@@ -103,7 +137,8 @@ prep_summary <- data.frame(
 write_xlsx(list(
   bch_simple = bch_results_simple,
   bch_adjusted = bch_results_adj,
-  prep_by_class = prep_summary
+  prep_by_class = prep_summary,
+  prep_by_other_covariates = prep_summaries_other
 ), "data/poisson_class_results_bch.xlsx")
 
 # Risk perception and PrEP initiation
@@ -141,7 +176,7 @@ res_prep_3cat <- data.frame(
 # adjusted Poisson model
 mod_prep_3cat_adj <- glm(
   prep_init_num ~ hiv_risk_perception_3cat + sdem_reside + rand_arm +
-    sdem_sex_binary + sdem_age + oat_current +
+    sdem_sex_binary + sdem_age_binary + oat_current +
     incarc_6m_bin + sdem_slep6m_binary,
   data   = m2hepprep_prep_combined_lca,
   family = poisson(link = "log")
@@ -205,7 +240,7 @@ res_cls_3cat <- do.call(
 
 mod_cls_3cat_adj <- nnet::multinom(
   class_factor_imputed ~ hiv_risk_perception_3cat + sdem_reside + rand_arm +
-    sdem_sex_binary + sdem_age + oat_current +
+    sdem_sex_binary + sdem_age_binary + oat_current +
     incarc_6m_bin + sdem_slep6m_binary,
   data  = m2hepprep_prep_combined_lca,
   trace = FALSE
