@@ -1,5 +1,3 @@
-# Load libraries and data
-
 # load libraries
 pacman::p_load(dplyr, tidyr, writexl, poLCA, ggplot2, clue, MASS)
 
@@ -20,7 +18,7 @@ lca_vars <- c(
   "sexwork_3m"
 )
 
-# Complete case coding
+# complete case coding
 
 # ensure poLCA encoding
 m2hepprep_prep_combined[lca_vars] <-
@@ -39,16 +37,15 @@ n <- nrow(m2hepprep_prep_combined_cc)
 cat("\nSample size after complete-case restriction:", n, "\n")
 
 # Run LCA
-
 lca_formula <- as.formula(
   paste("cbind(", paste(lca_vars, collapse = ", "), ") ~ 1")
 )
 
+fit_stats <- list()
+
+n <- nrow(m2hepprep_prep_combined_cc)
+
 set.seed(123)
-
-fit_stats <- vector("list", 5)
-
-n <- nrow(m2hepprep_prep_combined)
 
 for (k in 1:5) {
 
@@ -56,15 +53,14 @@ for (k in 1:5) {
 
   lca_model <- poLCA(
     lca_formula,
-    data    = m2hepprep_prep_combined,
+    data    = m2hepprep_prep_combined_cc,
     nclass  = k,
     maxiter = 1000,
     nrep    = 20,
     verbose = FALSE
   )
 
-# Calculate fit statistics
-sabic <- lca_model$bic - log(n) * (lca_model$npar - 1) / 2
+  sabic <- lca_model$bic - log(n) * (lca_model$npar - 1) / 2
 
   entropy <- NA
   if (!is.null(lca_model$posterior)) {
@@ -73,6 +69,7 @@ sabic <- lca_model$bic - log(n) * (lca_model$npar - 1) / 2
   }
 
   class_sizes <- table(lca_model$predclass)
+
   class_counts <- rep(NA, 5)
   class_counts[seq_along(class_sizes)] <- as.numeric(class_sizes)
 
@@ -101,8 +98,7 @@ print(fit_stats)
 # write to Excel
 write_xlsx(fit_stats, "data/lca_fit_stats_CC.xlsx")
 
-# Elbow plot
-
+# elbow plot
 elbow_plot <- ggplot(fit_stats, aes(x = NClasses)) +
   geom_line(aes(y = AIC, color = "AIC"), linewidth = 1.2) +
   geom_point(aes(y = AIC, color = "AIC"), size = 3) +
@@ -114,12 +110,19 @@ elbow_plot <- ggplot(fit_stats, aes(x = NClasses)) +
   labs(
     x = "Number of latent classes",
     y = "Information criterion",
-    title = "Complete-Case LCA Sensitivity Analysis",
+    title = "LCA Model Selection with Complete Case",
     color = "Criterion"
   ) +
   theme_minimal()
 
 print(elbow_plot)
+ggsave(
+  filename = "data/elbow_plot_lca_cc.png",
+  plot = elbow_plot,
+  width = 8,
+  height = 5,
+  dpi = 300
+)
 
 # Final LCA with four classes
 

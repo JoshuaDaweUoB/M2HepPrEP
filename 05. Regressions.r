@@ -110,8 +110,8 @@ bch_results_adj <- data.frame(
   p.value = coefs_adj[, "Pr(>|z|)"],
   row.names = NULL
 )
-View(bch_results_adj)
-# descriptive table (not weighted regression)
+
+# descriptive table 
 
 prep_by_class <- table(
   m2hepprep_prep_combined_lca$class_factor_imputed,

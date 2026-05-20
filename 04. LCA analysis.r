@@ -217,7 +217,7 @@ fit_summary <- all_fit_stats %>%
     SABIC_med = median(SABIC, na.rm = TRUE)
   )
 
-# Elbow plot
+# elbow plot
 elbow_plot <- ggplot(fit_summary, aes(x = NClasses)) +
   geom_line(aes(y = AIC_med, color = "AIC"), linewidth = 1.2) +
   geom_point(aes(y = AIC_med, color = "AIC"), size = 3) +
@@ -235,6 +235,14 @@ elbow_plot <- ggplot(fit_summary, aes(x = NClasses)) +
   theme_minimal()
 
 print(elbow_plot)
+
+ggsave(
+  filename = "data/elbow_plot_lca_mi.png",
+  plot = elbow_plot,
+  width = 8,
+  height = 5,
+  dpi = 300
+)
 
 # model fit statistics across imputations
 
@@ -305,7 +313,7 @@ for (i in 2:n_imp) {
   class_assignments[, i] <- align_classes(pred, ref_classes)
 }
 
-# Pool class membership 
+# pool class membership 
 
 final_class_assignment <- apply(class_assignments, 1, function(x) {
   as.numeric(names(which.max(table(x))))
@@ -444,7 +452,7 @@ aux_vars_selected <- setdiff(auxiliary_vars, "sdem_reside")
 df_ref <- df_ref %>%
   dplyr::mutate(dplyr::across(dplyr::all_of(aux_vars_selected), as.factor))
 
-# Overall counts / percents (drop NA levels)
+# overall counts / percents
 
 overall_aux <- dplyr::bind_rows(lapply(aux_vars_selected, function(var) {
   df_ref %>%
@@ -464,7 +472,7 @@ overall_aux <- dplyr::bind_rows(lapply(aux_vars_selected, function(var) {
     dplyr::ungroup()
 }))
 
-# By-city counts / percents (Montreal & Miami)
+# By-city counts / percents
 
 by_city_aux_long <- dplyr::bind_rows(lapply(aux_vars_selected, function(var) {
   df_ref %>%
