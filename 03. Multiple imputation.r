@@ -134,7 +134,7 @@ imp <- mice(
   imputation_data,
   method = meth,
   predictorMatrix = pred,
-  m = 100,
+  m = 20,
   maxit = 10,
   printFlag = TRUE
 )

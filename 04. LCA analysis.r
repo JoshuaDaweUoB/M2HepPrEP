@@ -497,7 +497,7 @@ by_city_aux_long <- dplyr::bind_rows(lapply(aux_vars_selected, function(var) {
     dplyr::ungroup()
 }))
 
-# Pivot cities wide
+# pivot cities wide
 
 wide_aux_city <- tidyr::pivot_wider(
   by_city_aux_long,
