@@ -113,21 +113,21 @@ stopifnot(
   )
 )
 
-# Set imputation methods for binary and cat vars
+# imputation methods for binary and cat vars
 meth <- make.method(imputation_data)
 meth[] <- ""
 
 meth[lca_vars_bin] <- "logreg"  # binary vars
 meth[lca_vars_cat] <- "polr"    # ordered factors
 
-# Set auxiliary and LCA vars as predictors
+# auxiliary and LCA vars as predictors
 pred <- make.predictorMatrix(imputation_data)
 pred[,] <- 0
 pred[lca_vars, lca_vars] <- 1
 pred[lca_vars, auxiliary_vars] <- 1
 diag(pred) <- 0
 
-# Run multiple imputation
+# multiple imputation
 set.seed(123)
 
 imp <- mice(

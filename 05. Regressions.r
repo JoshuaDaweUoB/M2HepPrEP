@@ -6,8 +6,10 @@ pacman::p_load(dplyr, tidyr, mice, writexl, readxl,
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/Publications/Montreal paper/")
 
 m2hepprep_prep_combined_lca <- read.csv("data/m2hepprep_combined_lca.csv")
+View(m2hepprep_prep_combined_lca)
+table(m2hepprep_prep_combined_lca$class_factor_imputed)
 
-# Load BCH weights
+# load BCH weights
 bch_weights <- readRDS("data/bch_weights.rds")
 m2hepprep_prep_combined_lca$bch_weight <- bch_weights
 
@@ -21,7 +23,7 @@ m2hepprep_prep_combined_lca$class_factor_imputed <- relevel(
   ref = "Low Injecting / Low Sexual Risk (n=157)"
 )
 
-# Check classification certainty (diagnostic info only)
+# classification certainty (diagnostic info only)
 post <- lca_imputed_results[[1]]$posterior
 
 # classification certainty per person (max posterior)
@@ -141,7 +143,84 @@ write_xlsx(list(
   prep_by_other_covariates = prep_summaries_other
 ), "data/poisson_class_results_bch.xlsx")
 
-# Risk perception and PrEP initiation
+# interaction model: LCA class + risk perception
+
+# set up risk perception factor
+m2hepprep_prep_combined_lca$hiv_risk_perception_3cat <-
+  factor(m2hepprep_prep_combined_lca$hiv_risk_perception_3cat)
+
+m2hepprep_prep_combined_lca$hiv_risk_perception_3cat <-
+  relevel(
+    m2hepprep_prep_combined_lca$hiv_risk_perception_3cat,
+    ref = "Unlikely/Very Unlikely"
+  )
+
+# unadjusted interaction model
+mod_interact_unadj <- glm(
+  prep_init_num ~ class_factor_imputed * hiv_risk_perception_3cat + 
+    sdem_reside + rand_arm,
+  data = m2hepprep_prep_combined_lca,
+  family = poisson(link = "log"),
+  weights = bch_weight
+)
+
+vc_interact_unadj <- sandwich::vcovHC(mod_interact_unadj, type = "HC0")
+ct_interact_unadj <- lmtest::coeftest(mod_interact_unadj, vcov. = vc_interact_unadj)
+se_interact_unadj <- sqrt(diag(vc_interact_unadj))
+
+res_interact_unadj <- data.frame(
+  term = rownames(ct_interact_unadj),
+  estimate = exp(ct_interact_unadj[, "Estimate"]),
+  conf.low = exp(ct_interact_unadj[, "Estimate"] - 1.96 * se_interact_unadj),
+  conf.high = exp(ct_interact_unadj[, "Estimate"] + 1.96 * se_interact_unadj),
+  p.value = ct_interact_unadj[, "Pr(>|z|)"],
+  stringsAsFactors = FALSE,
+  row.names = NULL
+)
+
+# adjusted interaction model
+mod_interact_adj <- glm(
+  prep_init_num ~ class_factor_imputed * hiv_risk_perception_3cat + 
+    sdem_reside + rand_arm +
+    sdem_sex_binary + sdem_age_binary +
+    oat_current + incarc_6m_bin + sdem_slep6m_binary,
+  data = m2hepprep_prep_combined_lca,
+  family = poisson(link = "log"),
+  weights = bch_weight
+)
+
+vc_interact_adj <- sandwich::vcovHC(mod_interact_adj, type = "HC0")
+ct_interact_adj <- lmtest::coeftest(mod_interact_adj, vcov. = vc_interact_adj)
+se_interact_adj <- sqrt(diag(vc_interact_adj))
+
+res_interact_adj <- data.frame(
+  term = rownames(ct_interact_adj),
+  estimate = exp(ct_interact_adj[, "Estimate"]),
+  conf.low = exp(ct_interact_adj[, "Estimate"] - 1.96 * se_interact_adj),
+  conf.high = exp(ct_interact_adj[, "Estimate"] + 1.96 * se_interact_adj),
+  p.value = ct_interact_adj[, "Pr(>|z|)"],
+  stringsAsFactors = FALSE,
+  row.names = NULL
+)
+
+# save interaction results
+write_xlsx(list(
+  Class_RP_Interaction_Unadj = res_interact_unadj,
+  Class_RP_Interaction_Adj = res_interact_adj
+), "data/class_rp_interaction_results.xlsx")
+
+# stratified table
+stratified <- m2hepprep_prep_combined_lca %>%
+  group_by(class_factor_imputed, hiv_risk_perception_3cat) %>%
+  summarise(
+    n = n(),
+    n_prep_init = sum(prep_init == "Yes"),
+    prep_rate = round(sum(prep_init == "Yes") / n(), 3),
+    .groups = "drop"
+  )
+stratified
+
+# risk perception and PrEP initiation
 
 # reference level
 m2hepprep_prep_combined_lca$hiv_risk_perception_3cat <-

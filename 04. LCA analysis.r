@@ -52,7 +52,9 @@ prepare_for_poLCA <- function(df, vars) {
   df
 }
 
-imputed_datasets_lca <- lapply(seq_len(imp$m), function(i) {
+m <- length(imputed_datasets_mice)
+
+imputed_datasets_lca <- lapply(seq_len(m), function(i) {
   df <- imputed_datasets_mice[[i]]
   prepare_for_poLCA(df, lca_vars)
 })
@@ -72,21 +74,19 @@ print(sapply(imputed_datasets_mice[[1]][lca_vars_cat], levels))
 cat("\nUnique values after conversion (should be integers >=1):\n")
 print(lapply(imputed_datasets_lca[[1]][lca_vars], unique))
 
-# Save descriptive stats of LCA variables
-
-desc_mi_all <- bind_rows(lapply(seq_len(imp$m), function(i) {
-  df <- imputed_datasets_mice[[i]]
-  bind_rows(lapply(lca_vars, function(v) {
+# save descriptive stats of LCA variables
+desc_mi_all <- bind_rows(lapply(seq_len(length(imputed_datasets_mice)), function(i) {  
+  df <- imputed_datasets_mice[[i]]  
+  bind_rows(lapply(lca_vars, function(v) {    
     tb <- as.data.frame(table(df[[v]], useNA = "ifany"), stringsAsFactors = FALSE)
-    names(tb) <- c("Level", "n")
+    names(tb) <- c("Level", "n")    
     tb$Variable <- v
-    tb <- tb %>%
+    tb %>%
       dplyr::mutate(
         pct = round(100 * n / sum(n), 1),
         Imputation = i
       ) %>%
-      dplyr::select(Variable, Level, n, pct, Imputation)
-    tb
+      dplyr::select(Variable, Level, n, pct, Imputation)    
   }))
 }))
 
@@ -110,7 +110,7 @@ writexl::write_xlsx(
   "data/lca_descriptives.xlsx"
 )
 
-# Multiple imputation latent class analysis
+# multiple imputation latent class analysis
 
 # number of imputations
 n_imp <- length(imputed_datasets_lca)
@@ -122,17 +122,17 @@ lca_formula <- as.formula(
 
 # fit statistics
 calculate_fit_stats <- function(lca_model, k, n) {
+
   sabic <- lca_model$bic - log(n) * (lca_model$npar - 1) / 2
-  
+
   entropy <- NA
   if (!is.null(lca_model$posterior)) {
     p <- lca_model$posterior
     entropy <- 1 - sum(p * log(p + 1e-10)) / (n * log(k))
   }
-  
-  class_sizes <- table(lca_model$predclass)
-  class_counts <- rep(NA, 5)
-  class_counts[seq_along(class_sizes)] <- as.numeric(class_sizes)
+
+  class_counts <- table(factor(lca_model$predclass, levels = 1:k))
+  class_counts <- as.numeric(class_counts)
 
   data.frame(
     NClasses = k,
@@ -144,13 +144,22 @@ calculate_fit_stats <- function(lca_model, k, n) {
     LL = lca_model$llik,
     ChiSquare = lca_model$Gsq,
     df = lca_model$resid.df,
-    NClass1 = class_counts[1],
-    NClass2 = class_counts[2],
-    NClass3 = class_counts[3],
-    NClass4 = class_counts[4],
-    NClass5 = class_counts[5]
+
+    NClass1 = ifelse(k >= 1, class_counts[1], NA),
+    NClass2 = ifelse(k >= 2, class_counts[2], NA),
+    NClass3 = ifelse(k >= 3, class_counts[3], NA),
+    NClass4 = ifelse(k >= 4, class_counts[4], NA),
+    NClass5 = ifelse(k >= 5, class_counts[5], NA)
   )
 }
+
+ref_models <- lapply(1:5, function(k) {
+  poLCA(lca_formula,
+        imputed_datasets_lca[[1]],
+        nclass = k,
+        nrep = 20,
+        verbose = FALSE)
+})
 
 # run LCA on all imputed datasets
 set.seed(123)
@@ -245,7 +254,6 @@ ggsave(
 )
 
 # model fit statistics across imputations
-
 fit_medians <- all_fit_stats %>%
   group_by(NClasses) %>%
   summarise(
@@ -264,10 +272,9 @@ k_final <- 4
 
 n_imp <- length(imputed_datasets_lca)
 n_participants <- nrow(imputed_datasets_lca[[1]])
+n_participants <- nrow(imputed_datasets_lca[[20]])
 
 lca_imputed_results <- vector("list", n_imp)
-
-set.seed(123)
 
 for (i in seq_len(n_imp)) {
   cat("Fitting final LCA (k =", k_final, ") on imputed dataset", i, "...\n")
@@ -330,6 +337,41 @@ cat("Perfect agreement rate:", round(agreement_rate * 100, 1), "%\n\n")
 # class distribution
 print(table(final_class_assignment))
 
+# fit and align k=2, 3, 4, 5 for table reporting
+
+for (k_val in c(2, 3, 4, 5)) {
+  cat("Fitting LCA (k =", k_val, ") across imputations for table\n")
+  
+  lca_imputed_results_k <- vector("list", n_imp)
+  
+  for (i in seq_len(n_imp)) {
+    lca_imputed_results_k[[i]] <- poLCA(
+      lca_formula,
+      data    = imputed_datasets_lca[[i]],
+      nclass  = k_val,
+      maxiter = 1000,
+      nrep    = 20,
+      verbose = FALSE
+    )
+  }
+  
+  class_assignments_k <- matrix(NA, nrow = n_participants, ncol = n_imp)
+  ref_classes_k <- lca_imputed_results_k[[1]]$predclass
+  class_assignments_k[, 1] <- ref_classes_k
+  
+  for (i in 2:n_imp) {
+    pred_k <- lca_imputed_results_k[[i]]$predclass
+    class_assignments_k[, i] <- align_classes(pred_k, ref_classes_k)
+  }
+  
+  final_class_assignment_k <- apply(class_assignments_k, 1, function(x) {
+    as.numeric(names(which.max(table(x))))
+  })
+  
+  class_counts_k <- table(final_class_assignment_k)
+  cat("k =", k_val, "class sizes:", paste(class_counts_k, collapse = ", "), "\n\n")
+}
+
 # BCH weights account for classification uncertainty
 
 # posterior probabilities for each person from each imputation
@@ -367,8 +409,7 @@ cat("Min weight:", round(min(bch_weights, na.rm = TRUE), 3), "\n")
 cat("Max weight:", round(max(bch_weights, na.rm = TRUE), 3), "\n")
 cat("SD weight:", round(sd(bch_weights, na.rm = TRUE), 3), "\n\n")
 
-# First dataset with final class
-
+# dataset with final class using first df
 df_ref <- imputed_datasets_lca[[1]]
 df_ref$Class <- final_class_assignment
 
@@ -429,141 +470,9 @@ wide_table <- freq_by_class %>%
 # save
 writexl::write_xlsx(wide_table, "data/class_patterns_categorical_wide.xlsx")
 
-# Auxiliary variables: Overall + By City (Montreal / Miami)
-table(df_ref$sdem_reside, useNA = "ifany")
-
-# reference dataset
-df_ref <- imputed_datasets_mice[[1]]
-df_ref$Class <- final_class_assignment
-
-df_ref <- df_ref %>%
-  mutate(
-    City = dplyr::case_when(
-      sdem_reside == "Greater Montreal area" ~ "Montreal",
-      sdem_reside == "Greater Miami area"    ~ "Miami",
-      TRUE ~ NA_character_
-    )
-  )
-
-# auxiliary variables
-aux_vars_selected <- setdiff(auxiliary_vars, "sdem_reside")
-
-# make sure auxiliary vars are factors
-df_ref <- df_ref %>%
-  dplyr::mutate(dplyr::across(dplyr::all_of(aux_vars_selected), as.factor))
-
-# overall counts / percents
-
-overall_aux <- dplyr::bind_rows(lapply(aux_vars_selected, function(var) {
-  df_ref %>%
-    dplyr::filter(!is.na(.data[[var]])) %>%
-    dplyr::group_by(
-      Variable    = var,
-      Level_Label = .data[[var]]
-    ) %>%
-    dplyr::summarise(
-      Count_Overall = dplyr::n(),
-      .groups = "drop"
-    ) %>%
-    dplyr::group_by(Variable) %>%
-    dplyr::mutate(
-      Percent_Overall = round(100 * Count_Overall / sum(Count_Overall), 1)
-    ) %>%
-    dplyr::ungroup()
-}))
-
-# By-city counts / percents
-
-by_city_aux_long <- dplyr::bind_rows(lapply(aux_vars_selected, function(var) {
-  df_ref %>%
-    dplyr::filter(
-      !is.na(.data[[var]]),
-      !is.na(City),
-      City %in% c("Montreal", "Miami")
-    ) %>%
-    dplyr::group_by(
-      Variable    = var,
-      Level_Label = .data[[var]],
-      City
-    ) %>%
-    dplyr::summarise(
-      Count = dplyr::n(),
-      .groups = "drop"
-    ) %>%
-    dplyr::group_by(Variable, City) %>%
-    dplyr::mutate(
-      Percent = round(100 * Count / sum(Count), 1)
-    ) %>%
-    dplyr::ungroup()
-}))
-
-# pivot cities wide
-
-wide_aux_city <- tidyr::pivot_wider(
-  by_city_aux_long,
-  id_cols     = c(Variable, Level_Label),
-  names_from  = City,
-  values_from = c(Count, Percent),
-  names_sep   = "_"
-)
-
-# combine Overall + City tables
-
-levels_overall_by_city_aux <- overall_aux %>%
-  dplyr::left_join(
-    wide_aux_city,
-    by = c("Variable", "Level_Label")
-  ) %>%
-  dplyr::arrange(Variable, Level_Label)
-
-# make sure city columns exist
-for (nm in c(
-  "Count_Montreal", "Percent_Montreal",
-  "Count_Miami",    "Percent_Miami"
-)) {
-  if (!nm %in% names(levels_overall_by_city_aux)) {
-    levels_overall_by_city_aux[[nm]] <-
-      if (grepl("^Count", nm)) NA_integer_ else NA_real_
-  }
-}
-
-# formatted columns
-levels_overall_by_city_aux <- levels_overall_by_city_aux %>%
-  dplyr::mutate(
-    Overall_fmt = sprintf(
-      "%d (%.1f)",
-      Count_Overall,
-      Percent_Overall
-    ),
-    Montreal_fmt = ifelse(
-      is.na(Count_Montreal),
-      NA,
-      sprintf("%d (%.1f)", Count_Montreal, Percent_Montreal)
-    ),
-    Miami_fmt = ifelse(
-      is.na(Count_Miami),
-      NA,
-      sprintf("%d (%.1f)", Count_Miami, Percent_Miami)
-    )
-  ) %>%
-  dplyr::select(
-    Variable,
-    Level_Label,
-    Overall_fmt,
-    Montreal_fmt,
-    Miami_fmt,
-    dplyr::everything()
-  )
-
-# save
-writexl::write_xlsx(
-  list(
-    Auxiliary_Overall_ByCity = levels_overall_by_city_aux
-  ),
-  "data/auxiliary_overall_by_city.xlsx"
-)
-
 # assign classes
+m2hepprep_prep_combined <- read.csv("data/m2hepprep_combined.csv")
+
 m2hepprep_prep_combined_lca <- m2hepprep_prep_combined
 m2hepprep_prep_combined_lca$class_imputed <- final_class_assignment
 m2hepprep_prep_combined_lca$bch_weight <- bch_weights
@@ -572,10 +481,10 @@ m2hepprep_prep_combined_lca$class_factor_imputed <- factor(
   final_class_assignment,
   levels = 1:k_final,
   labels = c(
-    "Low Injecting / Low Sexual Risk (n=157)",               # Class 1
-    "Low Injecting / High Sexual Risk (n=68)",               # Class 2 
-    "High Injecting / Low Sexual Risk (n=136)",              # Class 3
-    "High Injecting / High Sexual Risk (n=83)"               # Class 4
+    "High Injecting / High Sexual Risk (n=84)",         # Class 1
+    "High Injecting / Low Sexual Risk (n=136)",         # Class 2 
+    "Low Injecting / High Sexual Risk (n=67)",          # Class 3
+    "Low Injecting / Low Sexual Risk (n=157)"           # Class 4
   )
 )
 
@@ -667,7 +576,7 @@ ggplot2::ggsave(
   bg = "white"
 )
 
-# Inspect class distribution
+# class distribution
 cat("\nClass distribution (should match pooled assignments):\n")
 print(table(m2hepprep_prep_combined_lca$class_factor_imputed))
 
